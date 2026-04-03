@@ -1,0 +1,3 @@
+event: message
+data: {"jsonrpc":"2.0","id":1,"result":{"tools":[{"name":"ListChats","description":"List recent chats","inputSchema":{"type":"object","properties":{}}},{"name":"ListTeams","description":"List joined teams","inputSchema":{"type":"object","properties":{}}},{"name":"GetChat","description":"Get a chat by ID","inputSchema":{"type":"object","properties":{"chatId":{"type":"string"}},"required":["chatId"]}}]}}
+

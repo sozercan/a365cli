@@ -1,0 +1,10 @@
+version: "2"
+
+linters:
+  default: standard
+  disable:
+    - errcheck
+
+issues:
+  exclude-dirs:
+    - testdata

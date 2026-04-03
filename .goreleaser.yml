@@ -1,0 +1,68 @@
+version: 2
+
+project_name: a365
+
+before:
+  hooks:
+    - go test ./... -count=1
+
+builds:
+  - id: a365
+    binary: a365
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/sozercan/a365cli/internal/version.Version={{.Version}}
+      - -X github.com/sozercan/a365cli/internal/version.Commit={{.ShortCommit}}
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+
+brews:
+  - repository:
+      owner: sozercan
+      name: homebrew-repo
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/sozercan/a365cli"
+    description: "CLI for Microsoft 365 via agent365 MCP servers"
+    license: "MIT"
+    install: |
+      bin.install "a365"
+    test: |
+      system "#{bin}/a365", "--version"
+
+release:
+  github:
+    owner: sozercan
+    name: a365cli
+  name_template: "{{.Tag}}"

@@ -1,0 +1,3 @@
+event: message
+data: {"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"{\"value\":[{\"id\":\"19:abc@thread.v2\",\"topic\":\"Project Chat\",\"chatType\":\"group\"},{\"id\":\"19:def@thread.v2\",\"topic\":\"1:1 with Alice\",\"chatType\":\"oneOnOne\"}]}"}]}}
+

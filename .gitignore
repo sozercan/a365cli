@@ -1,0 +1,15 @@
+# Binary
+a365
+
+# OS files
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test coverage
+*.out
+/coverage/
