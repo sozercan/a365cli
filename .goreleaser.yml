@@ -51,7 +51,7 @@ brews:
   - repository:
       owner: sozercan
       name: homebrew-repo
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+      token: "{{ .Env.HOMEBREW_REPO_TOKEN }}"
     directory: Formula
     homepage: "https://github.com/sozercan/a365cli"
     description: "CLI for Microsoft 365 via agent365 MCP servers"
