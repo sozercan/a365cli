@@ -5,7 +5,7 @@ go 1.26
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity/cache v0.3.2
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity/cache v0.4.0
 	github.com/alecthomas/kong v1.15.0
 	github.com/zalando/go-keyring v0.2.6
 )
