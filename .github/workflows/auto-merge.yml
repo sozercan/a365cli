@@ -1,7 +1,13 @@
 name: Auto-merge Dependabot PRs
 
 on:
-  pull_request:
+  check_suite:
+    types:
+      - completed
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
 
 permissions:
   contents: write
@@ -9,17 +15,39 @@ permissions:
 
 jobs:
   auto-merge:
-    if: github.actor == 'dependabot[bot]'
+    if: github.event.sender.login == 'dependabot[bot]' || github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
-      - name: Approve PR
-        run: gh pr review "$PR_URL" --approve
+      - name: Get PR number
+        id: pr
+        run: |
+          PR=$(gh pr list --repo ${{ github.repository }} --head "${{ github.event.workflow_run.head_branch || github.event.check_suite.head_branch }}" --json number --jq '.[0].number')
+          echo "number=$PR" >> $GITHUB_OUTPUT
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Merge PR
-        run: gh pr merge "$PR_URL" --squash --delete-branch
+      - name: Check if Dependabot PR
+        id: check
+        if: steps.pr.outputs.number != ''
+        run: |
+          AUTHOR=$(gh pr view ${{ steps.pr.outputs.number }} --repo ${{ github.repository }} --json author --jq '.author.login')
+          echo "is_dependabot=$([[ "$AUTHOR" == "app/dependabot" ]] && echo true || echo false)" >> $GITHUB_OUTPUT
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check CI status
+        id: ci
+        if: steps.check.outputs.is_dependabot == 'true'
+        run: |
+          CHECKS=$(gh pr checks ${{ steps.pr.outputs.number }} --repo ${{ github.repository }} --json name,conclusion --jq '[.[] | select(.name != "auto-merge")] | all(.conclusion == "SUCCESS")')
+          echo "all_green=$CHECKS" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Approve and merge
+        if: steps.ci.outputs.all_green == 'true'
+        run: |
+          gh pr review ${{ steps.pr.outputs.number }} --repo ${{ github.repository }} --approve
+          gh pr merge ${{ steps.pr.outputs.number }} --repo ${{ github.repository }} --squash --delete-branch
+        env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
