@@ -1,13 +1,7 @@
 name: Auto-merge Dependabot PRs
 
 on:
-  check_suite:
-    types:
-      - completed
-  workflow_run:
-    workflows: ["CI"]
-    types:
-      - completed
+  pull_request:
 
 permissions:
   contents: write
@@ -15,39 +9,34 @@ permissions:
 
 jobs:
   auto-merge:
-    if: github.event.sender.login == 'dependabot[bot]' || github.actor == 'dependabot[bot]'
+    if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
-      - name: Get PR number
-        id: pr
+      - name: Wait for CI checks
         run: |
-          PR=$(gh pr list --repo ${{ github.repository }} --head "${{ github.event.workflow_run.head_branch || github.event.check_suite.head_branch }}" --json number --jq '.[0].number')
-          echo "number=$PR" >> $GITHUB_OUTPUT
+          echo "Waiting for CI checks to complete..."
+          for i in $(seq 1 60); do
+            RESULT=$(gh pr checks "$PR_URL" --json name,status,conclusion --jq '[.[] | select(.name != "auto-merge")] | if length == 0 then "pending" elif all(.status == "COMPLETED") then (if all(.conclusion == "SUCCESS") then "pass" else "fail" end) else "pending" end')
+            echo "Attempt $i: $RESULT"
+            if [ "$RESULT" = "pass" ]; then
+              echo "All checks passed!"
+              exit 0
+            elif [ "$RESULT" = "fail" ]; then
+              echo "Some checks failed, skipping merge"
+              exit 1
+            fi
+            sleep 15
+          done
+          echo "Timed out waiting for checks"
+          exit 1
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check if Dependabot PR
-        id: check
-        if: steps.pr.outputs.number != ''
-        run: |
-          AUTHOR=$(gh pr view ${{ steps.pr.outputs.number }} --repo ${{ github.repository }} --json author --jq '.author.login')
-          echo "is_dependabot=$([[ "$AUTHOR" == "app/dependabot" ]] && echo true || echo false)" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check CI status
-        id: ci
-        if: steps.check.outputs.is_dependabot == 'true'
-        run: |
-          CHECKS=$(gh pr checks ${{ steps.pr.outputs.number }} --repo ${{ github.repository }} --json name,conclusion --jq '[.[] | select(.name != "auto-merge")] | all(.conclusion == "SUCCESS")')
-          echo "all_green=$CHECKS" >> $GITHUB_OUTPUT
-        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Approve and merge
-        if: steps.ci.outputs.all_green == 'true'
         run: |
-          gh pr review ${{ steps.pr.outputs.number }} --repo ${{ github.repository }} --approve
-          gh pr merge ${{ steps.pr.outputs.number }} --repo ${{ github.repository }} --squash --delete-branch
+          gh pr review "$PR_URL" --approve
+          gh pr merge "$PR_URL" --squash --delete-branch
         env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
