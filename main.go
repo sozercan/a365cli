@@ -101,6 +101,9 @@ func main() {
 	if cli.ClientID == "" && fileCfg.ClientID != "" {
 		cli.ClientID = fileCfg.ClientID
 	}
+	if cli.ClientID == "" {
+		cli.ClientID = config.DefaultClientID
+	}
 	if cli.TenantID == "" && fileCfg.TenantID != "" {
 		cli.TenantID = fileCfg.TenantID
 	}

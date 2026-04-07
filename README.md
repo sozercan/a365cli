@@ -21,7 +21,6 @@ A standalone, agent-friendly CLI for Microsoft 365 via [agent365](https://agent3
 brew tap sozercan/repo && brew install a365
 
 # Authenticate (opens browser once, tokens are cached)
-a365 config set client-id your-client-id-here
 a365 auth login
 
 # Use it
@@ -67,11 +66,10 @@ go install github.com/sozercan/a365cli@latest
 
 a365 uses Entra ID interactive browser authentication with PKCE. On first run it opens your browser; after that, tokens refresh silently.
 
-```bash
-# Configure (one-time)
-a365 config set client-id your-client-id-here
+A built-in client ID is provided by default. If your tenant requires a custom app registration, set your own via `--client-id` or `A365_CLIENT_ID`.
 
-# Login
+```bash
+# Login (uses the built-in client ID by default)
 a365 auth login
 
 # Check status
@@ -86,7 +84,7 @@ a365 auth logout
 
 | Variable | Flag | Description |
 |----------|------|-------------|
-| `A365_CLIENT_ID` | `--client-id` | Entra app client ID (required) |
+| `A365_CLIENT_ID` | `--client-id` | Entra app client ID (default: `aebc6443-996d-45c2-90f0-388ff96faa56`) |
 | `A365_TENANT_ID` | `--tenant-id` | Entra tenant ID (optional, defaults to `organizations`) |
 | `A365_ENDPOINT` | — | Override the agent365 base URL |
 
@@ -95,7 +93,7 @@ a365 auth logout
 Persist defaults in `~/.a365/config.json`:
 
 ```bash
-a365 config set client-id your-client-id-here
+a365 config set client-id your-client-id-here  # override the default client ID
 a365 config set output json        # or table, tsv
 a365 config show                   # view all settings
 a365 config path                   # ~/.a365/config.json
@@ -179,7 +177,7 @@ $ a365 teams chats send "19:abc@thread.v2" "Hello" --dry-run -o json
 | `--no-input` | | Never prompt; fail instead (CI/agent mode) |
 | `--dry-run` | | Preview write operations with schema validation |
 | `-v`, `--verbose` | | Show MCP request/response for debugging |
-| `--client-id` | `A365_CLIENT_ID` | Entra app client ID |
+| `--client-id` | `A365_CLIENT_ID` | Entra app client ID (has default) |
 | `--tenant-id` | `A365_TENANT_ID` | Entra tenant ID |
 | `-V`, `--version` | | Show version |
 

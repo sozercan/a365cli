@@ -2,7 +2,7 @@
 
 ## Critical
 
-- **NEVER leak PII or confidential information** — no real email addresses, user IDs, team IDs, client IDs, tokens, keys, or tenant IDs in source code, docs, examples, or commit messages. Use fake/placeholder values (e.g. `your-client-id-here`, `alice@contoso.com`, `00000000-0000-0000-0000-000000000000`).
+- **NEVER leak PII or confidential information** — no real email addresses, user IDs, team IDs, tokens, keys, or tenant IDs in source code, docs, examples, or commit messages. Use fake/placeholder values (e.g. `alice@contoso.com`, `00000000-0000-0000-0000-000000000000`). Exception: the default client ID in `config.go` is a public first-party Microsoft app ID.
 - **Always validate with the API explorer before implementing** — run `a365 api tools <service>` to check tool names, required params, and schemas before writing command handlers. Do not guess tool names or argument shapes.
 
 ## Build and Test
@@ -58,5 +58,5 @@ Adding a new service = new directory in `internal/commands/`, register in `main.
 - Run `go test ./... -count=1` after any code change
 - Run `go vet ./...` before committing
 - When adding a new M365 service, follow the pattern in CONTRIBUTING.md "Adding a New Service"
-- For live testing, set `A365_CLIENT_ID` to your Entra app client ID
+- For live testing, the default client ID works out of the box — override with `A365_CLIENT_ID` if needed
 - Never post messages or modify data during testing without explicit user permission — use `--dry-run`

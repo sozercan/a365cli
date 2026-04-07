@@ -23,6 +23,9 @@ const (
 
 	// AuthRecordFile is the filename for cached auth record.
 	AuthRecordFile = "auth-record.json"
+
+	// DefaultClientID is the default Entra app client ID (VS Code MCP extension).
+	DefaultClientID = "aebc6443-996d-45c2-90f0-388ff96faa56"
 )
 
 // Servers maps friendly names to agent365 MCP server names.
