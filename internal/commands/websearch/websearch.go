@@ -20,7 +20,7 @@ func websearchEndpoint() string {
 // WebSearchSearchCmd searches the web.
 type WebSearchSearchCmd struct {
 	Query string   `arg:"" help:"Search query"`
-	URLs  []string `help:"URLs to search" name:"urls" optional:""`
+	URLs  []string `arg:"" help:"URLs to search" name:"urls"`
 }
 
 func (c *WebSearchSearchCmd) Run(ctx *commands.Context) error {

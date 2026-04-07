@@ -12,7 +12,7 @@ func TestWebSearchCmd_Run(t *testing.T) {
 		"SearchWeb": `{"results":[{"title":"Contoso Home","url":"https://www.contoso.com","snippet":"Welcome to Contoso."},{"title":"Contoso Blog","url":"https://blog.contoso.com","snippet":"Latest news from Contoso."}]}`,
 	})
 
-	cmd := &WebSearchSearchCmd{Query: "contoso"}
+	cmd := &WebSearchSearchCmd{Query: "contoso", URLs: []string{"https://www.contoso.com"}}
 	if err := cmd.Run(ctx); err != nil {
 		t.Fatalf("Run() error: %v", err)
 	}

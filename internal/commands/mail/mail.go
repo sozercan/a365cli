@@ -39,7 +39,7 @@ func mailEndpoint() string {
 
 // MailSearchCmd searches emails with OData query parameters.
 type MailSearchCmd struct {
-	Query string `arg:"" help:"OData query parameters (e.g. ?$search=\\\"budget\\\")"`
+	Query string `arg:"" help:"Search term or OData query parameters (e.g. 'budget' or '?$search=\\\"budget\\\"' or '?$filter=isRead eq false')"`
 	Max   int    `help:"Maximum number of results" default:"20"`
 }
 
@@ -49,8 +49,15 @@ func (c *MailSearchCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
+	// Auto-wrap bare search terms into OData $search query parameters.
+	// If the user provides a raw OData string (starting with ? or $), pass it through.
+	query := c.Query
+	if query != "" && query[0] != '?' && query[0] != '$' {
+		query = `?$search="` + query + `"`
+	}
+
 	resp, err := client.CallTool(ctx.Ctx, "SearchMessagesQueryParameters", map[string]any{
-		"queryParameters": c.Query,
+		"queryParameters": query,
 	})
 	if err != nil {
 		return fmt.Errorf("search: %w", err)

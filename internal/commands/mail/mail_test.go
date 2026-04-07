@@ -13,7 +13,7 @@ func TestMailSearchCmd_Run(t *testing.T) {
 		"SearchMessagesQueryParameters": `{"value":[{"id":"msg-001","subject":"Budget Review","receivedDateTime":"2025-01-15T10:00:00Z","from":{"emailAddress":{"name":"Alice","address":"alice@contoso.com"}},"isRead":true}]}`,
 	})
 
-	cmd := &MailSearchCmd{Query: `?$search="budget"`, Max: 20}
+	cmd := &MailSearchCmd{Query: `budget`, Max: 20}
 	if err := cmd.Run(ctx); err != nil {
 		t.Fatalf("Run() error: %v", err)
 	}
