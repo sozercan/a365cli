@@ -6,7 +6,7 @@ Manage SharePoint list sites, lists, items, and columns.
 
 | Command | Description | Key Arguments |
 |---------|-------------|---------------|
-| `sp-lists sites` | Search for SharePoint sites | `<query>` |
+| `sp-lists sites` | Search for SharePoint sites | `--query` |
 | `sp-lists site` | Get a site by hostname and path | `<hostname>` `<server-relative-path>` |
 | `sp-lists subsites` | List child sites | `<site-id>` |
 | `sp-lists lists` | List SharePoint lists in a site | `<site-id>` |
@@ -24,7 +24,7 @@ Manage SharePoint list sites, lists, items, and columns.
 
 ```bash
 # Find SharePoint sites by name
-a365 sp-lists sites "Engineering"
+a365 sp-lists sites --query "Engineering"
 
 # Get a specific site by hostname and path
 a365 sp-lists site contoso.sharepoint.com /sites/engineering
