@@ -8,7 +8,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity/cache"
 	"github.com/sozercan/a365cli/internal/config"
 )
 
@@ -41,12 +40,8 @@ func NewCredential(clientID, tenantID string) (*Credential, error) {
 	// survive between CLI invocations. This uses the OS credential store
 	// (macOS Keychain, Windows Credential Manager, Linux secret service).
 	// On macOS, click "Always Allow" when prompted to stop future prompts.
-	c, err := cache.New(&cache.Options{Name: "a365"})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: persistent token cache unavailable: %v\n", err)
-	} else {
-		opts.Cache = c
-	}
+	// Note: requires CGO; non-CGO builds skip this (tokens still work per-session).
+	applyTokenCache(opts)
 
 	cred, err := azidentity.NewInteractiveBrowserCredential(opts)
 	if err != nil {
