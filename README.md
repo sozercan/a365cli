@@ -156,16 +156,18 @@ Q4 Budget Review
 
 ## Safety
 
-All write operations support `--dry-run`. Destructive operations prompt for confirmation (skip with `--force`, fail with `--no-input`).
+All write operations support `--dry-run` with schema validation — arguments are validated against the server's published JSON Schema without executing the tool. Destructive operations prompt for confirmation (skip with `--force`, fail with `--no-input`).
 
 ```bash
-# Preview without executing
+# Preview without executing (validates args against server schema)
 $ a365 teams chats send "19:abc@thread.v2" "Hello" --dry-run
 Dry run: would send message to chat 19:abc@thread.v2
 
-# JSON dry-run (for agents)
+✓ Arguments valid against server schema
+
+# JSON dry-run (for agents/CI)
 $ a365 teams chats send "19:abc@thread.v2" "Hello" --dry-run -o json
-{"action":"chats.send","chatId":"19:abc@thread.v2","content":"Hello","dry_run":true}
+{"action":"chats.send","chatId":"19:abc@thread.v2","content":"Hello","dry_run":true,"validation":{"valid":true,"errors":null}}
 ```
 
 ## Global Flags
@@ -175,7 +177,7 @@ $ a365 teams chats send "19:abc@thread.v2" "Hello" --dry-run -o json
 | `-o`, `--output` | `A365_OUTPUT` | Output format: `table`, `json`, or `tsv` |
 | `--force` | | Skip confirmation prompts |
 | `--no-input` | | Never prompt; fail instead (CI/agent mode) |
-| `--dry-run` | | Preview write operations without executing |
+| `--dry-run` | | Preview write operations with schema validation |
 | `-v`, `--verbose` | | Show MCP request/response for debugging |
 | `--client-id` | `A365_CLIENT_ID` | Entra app client ID |
 | `--tenant-id` | `A365_TENANT_ID` | Entra tenant ID |
