@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sozercan/a365cli/internal/mcp"
 	"github.com/sozercan/a365cli/internal/testutil"
 )
 
@@ -58,7 +59,19 @@ func TestODRLsCmd_Run(t *testing.T) {
 }
 
 func TestODRMkdirCmd_DryRun(t *testing.T) {
-	ctx, buf := testutil.SetupTestServer(t, nil)
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "createFolderInMyOnedrive",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"folderName": map[string]any{"type": "string"},
+				},
+				"required": []any{"folderName"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
 	ctx.DryRun = true
 
 	cmd := &ODRMkdirCmd{FolderName: "NewFolder"}
@@ -75,6 +88,13 @@ func TestODRMkdirCmd_DryRun(t *testing.T) {
 	}
 	if result["action"] != "onedrive-remote.mkdir" {
 		t.Errorf("expected action=onedrive-remote.mkdir, got %v", result["action"])
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object in dry-run output")
+	}
+	if val["valid"] != true {
+		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
 	}
 }
 

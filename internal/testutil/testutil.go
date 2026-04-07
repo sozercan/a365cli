@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/sozercan/a365cli/internal/commands"
+	"github.com/sozercan/a365cli/internal/mcp"
 	"github.com/sozercan/a365cli/internal/output"
 )
 
@@ -19,6 +20,13 @@ import (
 // toolResponses maps MCP tool names to the JSON strings the mock should return
 // in Content[0].Text.
 func SetupTestServer(t *testing.T, toolResponses map[string]string) (*commands.Context, *bytes.Buffer) {
+	return SetupTestServerWithSchemas(t, toolResponses, nil)
+}
+
+// SetupTestServerWithSchemas creates a mock MCP server that also responds to
+// tools/list requests with the provided tool schemas. If toolSchemas is nil,
+// tools/list returns an empty list.
+func SetupTestServerWithSchemas(t *testing.T, toolResponses map[string]string, toolSchemas []mcp.ToolInfo) (*commands.Context, *bytes.Buffer) {
 	t.Helper()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -73,6 +81,19 @@ func SetupTestServer(t *testing.T, toolResponses map[string]string) (*commands.C
 						"content": []map[string]any{
 							{"type": "text", "text": respText},
 						},
+					},
+				}))
+		case "tools/list":
+			tools := toolSchemas
+			if tools == nil {
+				tools = []mcp.ToolInfo{}
+			}
+			fmt.Fprintf(w, "event: message\ndata: %s\n\n",
+				MustJSON(map[string]any{
+					"jsonrpc": "2.0",
+					"id":      req.ID,
+					"result": map[string]any{
+						"tools": tools,
 					},
 				}))
 		default:

@@ -75,7 +75,7 @@ type AdminSetLicenseCmd struct {
 
 func (c *AdminSetLicenseCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(adminEndpoint(), "mcp_Admin365_LicenseMgmtTools",
 			fmt.Sprintf("update licenses for user %s", c.UserID),
 			map[string]any{
 				"action":         "admin.set-license",

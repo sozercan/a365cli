@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sozercan/a365cli/internal/mcp"
 	"github.com/sozercan/a365cli/internal/testutil"
 )
 
@@ -50,7 +51,21 @@ func TestTriggersDeleteCmd_NoInput(t *testing.T) {
 }
 
 func TestTriggersCreateCmd_DryRun(t *testing.T) {
-	ctx, buf := testutil.SetupTestServer(t, nil)
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "create_trigger_definition",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"validationToken": map[string]any{"type": "string"},
+					"name":            map[string]any{"type": "string"},
+					"eventType":       map[string]any{"type": "string"},
+				},
+				"required": []any{"validationToken", "name", "eventType"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
 	ctx.DryRun = true
 
 	cmd := &TriggersCreateCmd{
@@ -74,5 +89,12 @@ func TestTriggersCreateCmd_DryRun(t *testing.T) {
 	}
 	if result["action"] != "triggers.create" {
 		t.Errorf("expected action=triggers.create, got %v", result["action"])
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object in dry-run output")
+	}
+	if val["valid"] != true {
+		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
 	}
 }

@@ -15,8 +15,9 @@ const (
 
 // sessionEntry is a single cached MCP session.
 type sessionEntry struct {
-	SessionID string    `json:"sessionID"`
-	ExpiresAt time.Time `json:"expiresAt"`
+	SessionID string     `json:"sessionID"`
+	ExpiresAt time.Time  `json:"expiresAt"`
+	Tools     []ToolInfo `json:"tools,omitempty"`
 }
 
 // sessionCachePath returns ~/.a365/sessions.json.
@@ -110,4 +111,40 @@ func ClearSessions() {
 		return
 	}
 	_ = os.Remove(path)
+}
+
+// LoadTools returns cached tool schemas for the given endpoint if the session
+// is valid. Returns nil if the session is expired or has no cached tools.
+// Best-effort: errors return nil.
+func LoadTools(endpoint string) []ToolInfo {
+	sessions, err := loadAllSessions()
+	if err != nil {
+		return nil
+	}
+
+	entry, ok := sessions[endpoint]
+	if !ok || time.Now().After(entry.ExpiresAt) {
+		return nil
+	}
+
+	return entry.Tools
+}
+
+// SaveTools updates the cached tools for an existing session entry.
+// If no session exists for the endpoint, this is a no-op.
+// Best-effort: errors are silently ignored.
+func SaveTools(endpoint string, tools []ToolInfo) {
+	sessions, err := loadAllSessions()
+	if err != nil {
+		return
+	}
+
+	entry, ok := sessions[endpoint]
+	if !ok || time.Now().After(entry.ExpiresAt) {
+		return
+	}
+
+	entry.Tools = tools
+	sessions[endpoint] = entry
+	_ = saveAllSessions(sessions)
 }

@@ -40,7 +40,7 @@ type Admin365BulkAddCmd struct {
 
 func (c *Admin365BulkAddCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(admin365Endpoint(), "BulkAddUsers",
 			"bulk add users to tenant",
 			map[string]any{
 				"action":      "admin365.bulk-add",
@@ -192,7 +192,7 @@ type Admin365SetAccessCmd struct {
 
 func (c *Admin365SetAccessCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateWhoCanAccessAgentsSettings",
 			fmt.Sprintf("update agent access to %q", c.AccessLevel),
 			map[string]any{
 				"action":      "admin365.set-access",
@@ -229,7 +229,7 @@ type Admin365SetSharingCmd struct {
 
 func (c *Admin365SetSharingCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateWhoCanShareAgentsOrgWideSettings",
 			fmt.Sprintf("update agent sharing to %q", c.AccessLevel),
 			map[string]any{
 				"action":      "admin365.set-sharing",
@@ -266,7 +266,7 @@ type Admin365SetMsAppsCmd struct {
 
 func (c *Admin365SetMsAppsCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateCanInstallMicrosoftAppsAndAgentsSettings",
 			fmt.Sprintf("update Microsoft apps install to %s", c.Allowed),
 			map[string]any{
 				"action":  "admin365.set-ms-apps",
@@ -303,7 +303,7 @@ type Admin365SetThirdPartyCmd struct {
 
 func (c *Admin365SetThirdPartyCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateCanInstallThirdPartyAppsAndAgentsSettings",
 			fmt.Sprintf("update third-party apps install to %s", c.Allowed),
 			map[string]any{
 				"action":  "admin365.set-third-party",
@@ -340,7 +340,7 @@ type Admin365SetLobAppsCmd struct {
 
 func (c *Admin365SetLobAppsCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateCanInstallLOBAppsAndAgentsSettings",
 			fmt.Sprintf("update LOB apps install to %s", c.Allowed),
 			map[string]any{
 				"action":  "admin365.set-lob-apps",
@@ -423,7 +423,7 @@ type Admin365SetCopilotCmd struct {
 
 func (c *Admin365SetCopilotCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateCopilotAdminSettings",
 			fmt.Sprintf("update Copilot admin setting to isEnabled=%s", c.IsEnabled),
 			map[string]any{
 				"action":    "admin365.set-copilot",

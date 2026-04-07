@@ -177,7 +177,7 @@ type ODRMkdirCmd struct {
 
 func (c *ODRMkdirCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(odrEndpoint(), "createFolderInMyOnedrive",
 			fmt.Sprintf("create folder %q", c.FolderName),
 			map[string]any{
 				"action":     "onedrive-remote.mkdir",
@@ -215,7 +215,7 @@ type ODRWriteCmd struct {
 
 func (c *ODRWriteCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(odrEndpoint(), "createSmallTextFileInMyOnedrive",
 			fmt.Sprintf("create file %q", c.Filename),
 			map[string]any{
 				"action":      "onedrive-remote.write",
@@ -256,7 +256,7 @@ type ODRRenameCmd struct {
 
 func (c *ODRRenameCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(odrEndpoint(), "renameFileOrFolderInMyOnedrive",
 			fmt.Sprintf("rename %s to %q", c.FileOrFolderID, c.NewFileOrFolderName),
 			map[string]any{
 				"action":              "onedrive-remote.rename",
@@ -299,7 +299,7 @@ type ODRMvCmd struct {
 
 func (c *ODRMvCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(odrEndpoint(), "moveSmallFileInMyOnedrive",
 			fmt.Sprintf("move file %s to folder %s", c.FileID, c.NewParentFolderID),
 			map[string]any{
 				"action":            "onedrive-remote.mv",
@@ -341,7 +341,7 @@ type ODRRmCmd struct {
 
 func (c *ODRRmCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(odrEndpoint(), "deleteFileOrFolderInMyOnedrive",
 			fmt.Sprintf("delete %s", c.FileOrFolderID),
 			map[string]any{
 				"action":         "onedrive-remote.rm",
@@ -386,7 +386,7 @@ type ODRShareCmd struct {
 
 func (c *ODRShareCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(odrEndpoint(), "shareFileOrFolderInMyOnedrive",
 			fmt.Sprintf("share %s with %v", c.FileOrFolderID, c.RecipientEmails),
 			map[string]any{
 				"action":          "onedrive-remote.share",
@@ -428,7 +428,7 @@ type ODRLabelCmd struct {
 
 func (c *ODRLabelCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(odrEndpoint(), "setSensitivityLabelOnFileInMyOnedrive",
 			fmt.Sprintf("set sensitivity label %s on file %s", c.SensitivityLabelID, c.FileID),
 			map[string]any{
 				"action":             "onedrive-remote.label",

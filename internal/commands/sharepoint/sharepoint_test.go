@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sozercan/a365cli/internal/mcp"
 	"github.com/sozercan/a365cli/internal/testutil"
 )
 
@@ -31,7 +32,21 @@ func TestSPFindCmd_Run(t *testing.T) {
 }
 
 func TestSPMkdirCmd_DryRun(t *testing.T) {
-	ctx, buf := testutil.SetupTestServer(t, nil)
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "createFolder",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"driveId":    map[string]any{"type": "string"},
+					"parentPath": map[string]any{"type": "string"},
+					"folderName": map[string]any{"type": "string"},
+				},
+				"required": []any{"driveId", "folderName"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
 	ctx.DryRun = true
 
 	cmd := &SPMkdirCmd{
@@ -52,6 +67,13 @@ func TestSPMkdirCmd_DryRun(t *testing.T) {
 	}
 	if result["action"] != "sharepoint.mkdir" {
 		t.Errorf("expected action=sharepoint.mkdir, got %v", result["action"])
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object in dry-run output")
+	}
+	if val["valid"] != true {
+		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
 	}
 }
 

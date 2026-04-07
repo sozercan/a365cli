@@ -27,7 +27,7 @@ type ExcelCreateCmd struct {
 
 func (c *ExcelCreateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(excelEndpoint(), "CreateWorkbook",
 			fmt.Sprintf("create Excel workbook %q", c.FileName),
 			map[string]any{"action": "excel.create", "desiredFileName": c.FileName},
 		)
@@ -89,7 +89,7 @@ type ExcelCommentCmd struct {
 
 func (c *ExcelCommentCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(excelEndpoint(), "CreateComment",
 			fmt.Sprintf("add comment to workbook %s at cell %s", c.DocumentID, c.CellAddress),
 			map[string]any{"action": "excel.comment", "driveId": c.DriveID, "documentId": c.DocumentID, "cellAddress": c.CellAddress},
 		)
@@ -127,7 +127,7 @@ type ExcelReplyCmd struct {
 
 func (c *ExcelReplyCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(excelEndpoint(), "ReplyToComment",
 			fmt.Sprintf("reply to comment %s on workbook %s", c.CommentID, c.DocumentID),
 			map[string]any{"action": "excel.reply", "commentId": c.CommentID, "driveId": c.DriveID, "documentId": c.DocumentID},
 		)

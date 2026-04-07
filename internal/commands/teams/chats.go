@@ -131,7 +131,7 @@ type ChatsSendCmd struct {
 
 func (c *ChatsSendCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(teamsEndpoint(), "PostMessage",
 			fmt.Sprintf("send message to chat %s", c.ChatID),
 			map[string]any{
 				"action":  "chats.send",
@@ -168,7 +168,7 @@ type ChatsSendSelfCmd struct {
 
 func (c *ChatsSendSelfCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun("send message to self", map[string]any{
+		return ctx.ValidateDryRun(teamsEndpoint(), "SendMessageToSelf", "send message to self", map[string]any{
 			"action":  "chats.send-self",
 			"content": c.Message,
 		})
@@ -231,7 +231,7 @@ type ChatsCreateCmd struct {
 
 func (c *ChatsCreateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(teamsEndpoint(), "CreateChat",
 			fmt.Sprintf("create %s chat with %v", c.Type, c.Members),
 			map[string]any{
 				"action":       "chats.create",
@@ -274,7 +274,7 @@ type ChatsDeleteCmd struct {
 
 func (c *ChatsDeleteCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(teamsEndpoint(), "DeleteChat",
 			fmt.Sprintf("delete chat %s", c.ChatID),
 			map[string]any{"action": "chats.delete", "chatId": c.ChatID},
 		)
@@ -311,7 +311,7 @@ type ChatsUpdateCmd struct {
 
 func (c *ChatsUpdateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(teamsEndpoint(), "UpdateChat",
 			fmt.Sprintf("update chat %s topic to %q", c.ChatID, c.Topic),
 			map[string]any{"action": "chats.update", "chatId": c.ChatID, "topic": c.Topic},
 		)
@@ -348,7 +348,7 @@ type ChatsUpdateMessageCmd struct {
 
 func (c *ChatsUpdateMessageCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(teamsEndpoint(), "UpdateChatMessage",
 			fmt.Sprintf("update message %s in chat %s", c.MessageID, c.ChatID),
 			map[string]any{
 				"action":    "chats.update-message",
@@ -388,7 +388,7 @@ type ChatsDeleteMessageCmd struct {
 
 func (c *ChatsDeleteMessageCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(teamsEndpoint(), "DeleteChatMessage",
 			fmt.Sprintf("delete message %s in chat %s", c.MessageID, c.ChatID),
 			map[string]any{"action": "chats.delete-message", "chatId": c.ChatID, "messageId": c.MessageID},
 		)
@@ -458,9 +458,16 @@ type ChatsAddMemberCmd struct {
 
 func (c *ChatsAddMemberCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		mcpArgs := map[string]any{
+			"chatId":         c.ChatID,
+			"roles":          c.Roles,
+			"userodata_bind": fmt.Sprintf("https://graph.microsoft.com/v1.0/users('%s')", c.UPN),
+			"odata_type":     "#microsoft.graph.aadUserConversationMember",
+		}
+		return ctx.ValidateDryRun(teamsEndpoint(), "AddChatMember",
 			fmt.Sprintf("add member %s to chat %s", c.UPN, c.ChatID),
 			map[string]any{"action": "chats.add-member", "chatId": c.ChatID, "upn": c.UPN, "roles": c.Roles},
+			mcpArgs,
 		)
 	}
 

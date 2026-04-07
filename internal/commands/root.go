@@ -84,3 +84,32 @@ func isTerminal() bool {
 	}
 	return fi.Mode()&os.ModeCharDevice != 0
 }
+
+// ValidateDryRun connects to the MCP server, fetches tool schemas (cached),
+// validates the given args against the tool's published schema, and prints
+// the dry-run output with validation results.
+// displayData is shown in the dry-run output; mcpArgs (if non-nil) are validated
+// against the schema. If mcpArgs is nil, displayData is used for validation.
+// If the server is unreachable or schemas cannot be fetched, the dry-run
+// output degrades gracefully with a "validation skipped" warning.
+func (c *Context) ValidateDryRun(endpoint, toolName, action string, displayData map[string]any, mcpArgs ...map[string]any) error {
+	var vr *mcp.ValidationResult
+
+	// Use mcpArgs for validation if provided, otherwise use displayData.
+	argsToValidate := displayData
+	if len(mcpArgs) > 0 && mcpArgs[0] != nil {
+		argsToValidate = mcpArgs[0]
+	}
+
+	client := c.NewMCPClient(endpoint)
+	if err := client.Initialize(c.Ctx); err == nil {
+		if tools, err := client.ListToolsCached(c.Ctx); err == nil {
+			if reg, err := mcp.NewSchemaRegistry(tools); err == nil {
+				result := reg.Validate(toolName, argsToValidate)
+				vr = &result
+			}
+		}
+	}
+
+	return c.Output.PrintDryRunValidated(action, displayData, vr)
+}

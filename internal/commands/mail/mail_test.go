@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sozercan/a365cli/internal/mcp"
 	"github.com/sozercan/a365cli/internal/testutil"
 )
 
@@ -58,7 +59,21 @@ func TestMailGetCmd_Run(t *testing.T) {
 }
 
 func TestMailSendCmd_DryRun(t *testing.T) {
-	ctx, buf := testutil.SetupTestServer(t, nil)
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "SendEmailWithAttachments",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"to":      map[string]any{"type": "array"},
+					"subject": map[string]any{"type": "string"},
+					"body":    map[string]any{"type": "string"},
+				},
+				"required": []any{"to", "subject", "body"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
 	ctx.DryRun = true
 
 	cmd := &MailSendCmd{
@@ -79,6 +94,13 @@ func TestMailSendCmd_DryRun(t *testing.T) {
 	}
 	if result["action"] != "mail.send" {
 		t.Errorf("expected action=mail.send, got %v", result["action"])
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object in dry-run output")
+	}
+	if val["valid"] != true {
+		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
 	}
 }
 

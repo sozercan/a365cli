@@ -573,3 +573,63 @@ func TestIsSessionError(t *testing.T) {
 		})
 	}
 }
+
+func TestClient_ListToolsCached(t *testing.T) {
+	withTempHome(t)
+
+	var callCount int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var req JSONRPCRequest
+		json.Unmarshal(body, &req) //nolint:errcheck
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Mcp-Session-Id", "test-session")
+
+		switch req.Method {
+		case "initialize":
+			fmt.Fprintf(w, "event: message\ndata: %s\n\n",
+				fmt.Sprintf(`{"jsonrpc":"2.0","id":%d,"result":{"protocolVersion":"2024-11-05","serverInfo":{"name":"test","version":"1.0"}}}`, req.ID))
+		case "tools/list":
+			atomic.AddInt32(&callCount, 1)
+			fmt.Fprintf(w, "event: message\ndata: %s\n\n",
+				fmt.Sprintf(`{"jsonrpc":"2.0","id":%d,"result":{"tools":[{"name":"ListChats","description":"List chats","inputSchema":{"type":"object","properties":{}}}]}}`, req.ID))
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL+"/", func(ctx context.Context) (string, error) {
+		return "token", nil
+	})
+
+	if err := client.Initialize(context.Background()); err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+
+	// First call should hit the server.
+	tools, err := client.ListToolsCached(context.Background())
+	if err != nil {
+		t.Fatalf("ListToolsCached (1st): %v", err)
+	}
+	if len(tools) != 1 || tools[0].Name != "ListChats" {
+		t.Fatalf("expected 1 tool 'ListChats', got %v", tools)
+	}
+
+	if c := atomic.LoadInt32(&callCount); c != 1 {
+		t.Fatalf("expected 1 tools/list call, got %d", c)
+	}
+
+	// Second call should use the cache (no additional server call).
+	tools2, err := client.ListToolsCached(context.Background())
+	if err != nil {
+		t.Fatalf("ListToolsCached (2nd): %v", err)
+	}
+	if len(tools2) != 1 {
+		t.Fatalf("expected 1 cached tool, got %d", len(tools2))
+	}
+
+	if c := atomic.LoadInt32(&callCount); c != 1 {
+		t.Errorf("expected tools/list called only once (cached), got %d", c)
+	}
+}

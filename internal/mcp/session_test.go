@@ -145,3 +145,102 @@ func TestSaveSession_CorruptFile(t *testing.T) {
 		t.Errorf("expected 'new-sess', got %q (ok=%v)", sid, ok)
 	}
 }
+
+func TestSaveAndLoadTools(t *testing.T) {
+	withTempHome(t)
+
+	endpoint := "https://example.com/mcp/server1/"
+
+	// No tools should exist yet.
+	if tools := LoadTools(endpoint); tools != nil {
+		t.Fatal("expected no cached tools initially")
+	}
+
+	// Save a session first (tools are stored within a session entry).
+	SaveSession(endpoint, "sess-123")
+
+	// Save tools for that endpoint.
+	toolList := []ToolInfo{
+		{Name: "ListChats", Description: "List chats"},
+		{Name: "GetChat", Description: "Get a chat", InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"chatId": map[string]any{"type": "string"},
+			},
+			"required": []any{"chatId"},
+		}},
+	}
+	SaveTools(endpoint, toolList)
+
+	// Load tools back.
+	loaded := LoadTools(endpoint)
+	if len(loaded) != 2 {
+		t.Fatalf("expected 2 tools, got %d", len(loaded))
+	}
+	if loaded[0].Name != "ListChats" {
+		t.Errorf("expected 'ListChats', got %q", loaded[0].Name)
+	}
+	if loaded[1].Name != "GetChat" {
+		t.Errorf("expected 'GetChat', got %q", loaded[1].Name)
+	}
+}
+
+func TestLoadTools_ExpiredSession(t *testing.T) {
+	home := withTempHome(t)
+
+	endpoint := "https://example.com/mcp/server1/"
+
+	// Write an expired session with tools directly.
+	sessions := map[string]sessionEntry{
+		endpoint: {
+			SessionID: "old-session",
+			ExpiresAt: time.Now().Add(-time.Hour),
+			Tools:     []ToolInfo{{Name: "StaleTool"}},
+		},
+	}
+	dir := filepath.Join(home, sessionDir)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := json.Marshal(sessions)
+	if err := os.WriteFile(filepath.Join(dir, sessionFile), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should not return tools from an expired session.
+	if tools := LoadTools(endpoint); tools != nil {
+		t.Fatal("expected nil tools from expired session")
+	}
+}
+
+func TestSaveTools_NoSession(t *testing.T) {
+	withTempHome(t)
+
+	// SaveTools without a session should be a no-op (no panic).
+	SaveTools("https://example.com/mcp/server1/", []ToolInfo{{Name: "Tool1"}})
+
+	// Should still not have tools since there was no session.
+	if tools := LoadTools("https://example.com/mcp/server1/"); tools != nil {
+		t.Fatal("expected nil tools when no session exists")
+	}
+}
+
+func TestLoadTools_ClearedBySessionClear(t *testing.T) {
+	withTempHome(t)
+
+	endpoint := "https://example.com/mcp/server1/"
+	SaveSession(endpoint, "sess-123")
+	SaveTools(endpoint, []ToolInfo{{Name: "Tool1"}})
+
+	// Verify tools exist.
+	if tools := LoadTools(endpoint); len(tools) != 1 {
+		t.Fatal("expected tools before clear")
+	}
+
+	ClearSessions()
+
+	// After clearing sessions, tools should be gone too.
+	if tools := LoadTools(endpoint); tools != nil {
+		t.Fatal("expected nil tools after ClearSessions")
+	}
+}

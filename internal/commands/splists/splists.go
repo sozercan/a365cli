@@ -198,7 +198,7 @@ type SPLCreateCmd struct {
 
 func (c *SPLCreateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spListsEndpoint(), "createList",
 			fmt.Sprintf("create list %q in site %s", c.DisplayName, c.SiteID),
 			map[string]any{"action": "sp-lists.create-list", "siteId": c.SiteID, "displayName": c.DisplayName},
 		)
@@ -233,7 +233,7 @@ type SPLAddColumnCmd struct {
 
 func (c *SPLAddColumnCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spListsEndpoint(), "createListColumn",
 			fmt.Sprintf("add column %q (type %s) to list %s in site %s", c.Name, c.ColumnType, c.ListID, c.SiteID),
 			map[string]any{"action": "sp-lists.add-column", "siteId": c.SiteID, "listId": c.ListID, "name": c.Name, "columnType": c.ColumnType},
 		)
@@ -274,7 +274,7 @@ func (c *SPLAddItemCmd) Run(ctx *commands.Context) error {
 	}
 
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spListsEndpoint(), "createListItem",
 			fmt.Sprintf("add item to list %s in site %s", c.ListID, c.SiteID),
 			map[string]any{"action": "sp-lists.add-item", "siteId": c.SiteID, "listId": c.ListID, "fields": fields},
 		)
@@ -310,7 +310,7 @@ type SPLUpdateItemCmd struct {
 
 func (c *SPLUpdateItemCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spListsEndpoint(), "updateListItem",
 			fmt.Sprintf("update item %s in list %s (site %s)", c.ItemID, c.ListID, c.SiteID),
 			map[string]any{"action": "sp-lists.update-item", "siteId": c.SiteID, "listId": c.ListID, "itemId": c.ItemID},
 		)
@@ -354,7 +354,7 @@ type SPLEditColCmd struct {
 
 func (c *SPLEditColCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spListsEndpoint(), "editListColumn",
 			fmt.Sprintf("edit column %s in list %s (site %s)", c.ColumnID, c.ListID, c.SiteID),
 			map[string]any{"action": "sp-lists.edit-column", "siteId": c.SiteID, "listId": c.ListID, "columnId": c.ColumnID},
 		)
@@ -393,7 +393,7 @@ type SPLDeleteItemCmd struct {
 
 func (c *SPLDeleteItemCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spListsEndpoint(), "deleteListItem",
 			fmt.Sprintf("delete item %s from list %s (site %s)", c.ItemID, c.ListID, c.SiteID),
 			map[string]any{"action": "sp-lists.delete-item", "siteId": c.SiteID, "listId": c.ListID, "itemId": c.ItemID},
 		)
@@ -431,7 +431,7 @@ type SPLDeleteColCmd struct {
 
 func (c *SPLDeleteColCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spListsEndpoint(), "deleteListColumn",
 			fmt.Sprintf("delete column %s from list %s (site %s)", c.ColumnID, c.ListID, c.SiteID),
 			map[string]any{"action": "sp-lists.delete-column", "siteId": c.SiteID, "listId": c.ListID, "columnId": c.ColumnID},
 		)

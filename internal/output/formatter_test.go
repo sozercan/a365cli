@@ -208,6 +208,132 @@ func TestPrintDryRun_JSON(t *testing.T) {
 	}
 }
 
+func TestPrintDryRunValidated_Human_Valid(t *testing.T) {
+	var buf bytes.Buffer
+	f := &Formatter{Format: FormatHuman, Writer: &buf}
+
+	v := &mcp.ValidationResult{Valid: true}
+	err := f.PrintDryRunValidated("send message to chat abc", map[string]any{"action": "chats.send"}, v)
+	if err != nil {
+		t.Fatalf("PrintDryRunValidated failed: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Dry run: would send message to chat abc") {
+		t.Error("expected dry run message")
+	}
+	if !strings.Contains(out, "Arguments valid") {
+		t.Error("expected valid message")
+	}
+}
+
+func TestPrintDryRunValidated_Human_Invalid(t *testing.T) {
+	var buf bytes.Buffer
+	f := &Formatter{Format: FormatHuman, Writer: &buf}
+
+	v := &mcp.ValidationResult{Valid: false, Errors: []string{"/chatId: expected string, got number"}}
+	err := f.PrintDryRunValidated("send message", map[string]any{"action": "chats.send"}, v)
+	if err == nil {
+		t.Fatal("expected error for invalid validation")
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Validation errors") {
+		t.Error("expected validation errors header")
+	}
+	if !strings.Contains(out, "chatId") {
+		t.Error("expected chatId in error output")
+	}
+}
+
+func TestPrintDryRunValidated_Human_Nil(t *testing.T) {
+	var buf bytes.Buffer
+	f := &Formatter{Format: FormatHuman, Writer: &buf}
+
+	err := f.PrintDryRunValidated("send message", map[string]any{"action": "chats.send"}, nil)
+	if err != nil {
+		t.Fatalf("PrintDryRunValidated with nil should not error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Validation skipped") {
+		t.Error("expected validation skipped warning")
+	}
+}
+
+func TestPrintDryRunValidated_JSON_Valid(t *testing.T) {
+	var buf bytes.Buffer
+	f := &Formatter{Format: FormatJSON, Writer: &buf}
+
+	v := &mcp.ValidationResult{Valid: true, Errors: []string{}}
+	err := f.PrintDryRunValidated("send message", map[string]any{"action": "chats.send"}, v)
+	if err != nil {
+		t.Fatalf("PrintDryRunValidated failed: %v", err)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+	if parsed["dry_run"] != true {
+		t.Error("expected dry_run=true")
+	}
+
+	val, ok := parsed["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object")
+	}
+	if val["valid"] != true {
+		t.Error("expected valid=true")
+	}
+}
+
+func TestPrintDryRunValidated_JSON_Invalid(t *testing.T) {
+	var buf bytes.Buffer
+	f := &Formatter{Format: FormatJSON, Writer: &buf}
+
+	v := &mcp.ValidationResult{Valid: false, Errors: []string{"missing required: content"}}
+	err := f.PrintDryRunValidated("send message", map[string]any{"action": "chats.send"}, v)
+	if err == nil {
+		t.Fatal("expected error for invalid validation")
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+
+	val, ok := parsed["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object")
+	}
+	if val["valid"] != false {
+		t.Error("expected valid=false")
+	}
+	errs, ok := val["errors"].([]any)
+	if !ok || len(errs) != 1 {
+		t.Errorf("expected 1 error, got %v", val["errors"])
+	}
+}
+
+func TestPrintDryRunValidated_JSON_Nil(t *testing.T) {
+	var buf bytes.Buffer
+	f := &Formatter{Format: FormatJSON, Writer: &buf}
+
+	err := f.PrintDryRunValidated("send message", map[string]any{"action": "chats.send"}, nil)
+	if err != nil {
+		t.Fatalf("PrintDryRunValidated with nil should not error: %v", err)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+	if parsed["validation"] != nil {
+		t.Errorf("expected validation=null, got %v", parsed["validation"])
+	}
+}
+
 func TestPrintRaw_Error(t *testing.T) {
 	var buf bytes.Buffer
 	f := &Formatter{Format: FormatHuman, Writer: &buf}

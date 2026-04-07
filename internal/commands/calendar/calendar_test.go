@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/sozercan/a365cli/internal/mcp"
 	"github.com/sozercan/a365cli/internal/testutil"
 )
 
@@ -35,7 +36,22 @@ func TestCalListCmd_Run(t *testing.T) {
 }
 
 func TestCalCreateCmd_DryRun(t *testing.T) {
-	ctx, buf := testutil.SetupTestServer(t, nil)
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "CreateEvent",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"subject":        map[string]any{"type": "string"},
+					"startDateTime":  map[string]any{"type": "string"},
+					"endDateTime":    map[string]any{"type": "string"},
+					"attendeeEmails": map[string]any{"type": "array"},
+				},
+				"required": []any{"subject", "startDateTime", "endDateTime"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
 	ctx.DryRun = true
 
 	cmd := &CalCreateCmd{
@@ -57,6 +73,13 @@ func TestCalCreateCmd_DryRun(t *testing.T) {
 	}
 	if result["action"] != "calendar.create" {
 		t.Errorf("expected action=calendar.create, got %v", result["action"])
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object in dry-run output")
+	}
+	if val["valid"] != true {
+		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
 	}
 }
 
@@ -81,7 +104,19 @@ func TestCalDeleteCmd_Force(t *testing.T) {
 }
 
 func TestCalAcceptCmd_DryRun(t *testing.T) {
-	ctx, buf := testutil.SetupTestServer(t, nil)
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "AcceptEvent",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"eventId": map[string]any{"type": "string"},
+				},
+				"required": []any{"eventId"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
 	ctx.DryRun = true
 
 	cmd := &CalAcceptCmd{ID: "evt-001"}
@@ -98,5 +133,12 @@ func TestCalAcceptCmd_DryRun(t *testing.T) {
 	}
 	if result["action"] != "calendar.accept" {
 		t.Errorf("expected action=calendar.accept, got %v", result["action"])
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object in dry-run output")
+	}
+	if val["valid"] != true {
+		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
 	}
 }

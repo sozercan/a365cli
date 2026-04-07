@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/sozercan/a365cli/internal/commands"
+	"github.com/sozercan/a365cli/internal/mcp"
 	"github.com/sozercan/a365cli/internal/output"
 )
 
@@ -20,6 +21,12 @@ import (
 // the output buffer, and a cleanup function. toolResponses maps MCP tool names
 // to the JSON strings the mock should return in Content[0].Text.
 func setupTestServer(t *testing.T, toolResponses map[string]string) (*commands.Context, *bytes.Buffer, func()) {
+	return setupTestServerWithSchemas(t, toolResponses, nil)
+}
+
+// setupTestServerWithSchemas creates a mock MCP server that also responds to
+// tools/list requests with the provided tool schemas.
+func setupTestServerWithSchemas(t *testing.T, toolResponses map[string]string, toolSchemas []mcp.ToolInfo) (*commands.Context, *bytes.Buffer, func()) {
 	t.Helper()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -74,6 +81,19 @@ func setupTestServer(t *testing.T, toolResponses map[string]string) (*commands.C
 						"content": []map[string]any{
 							{"type": "text", "text": respText},
 						},
+					},
+				}))
+		case "tools/list":
+			tools := toolSchemas
+			if tools == nil {
+				tools = []mcp.ToolInfo{}
+			}
+			fmt.Fprintf(w, "event: message\ndata: %s\n\n",
+				mustJSON(map[string]any{
+					"jsonrpc": "2.0",
+					"id":      req.ID,
+					"result": map[string]any{
+						"tools": tools,
 					},
 				}))
 		default:
@@ -194,8 +214,20 @@ func TestChatsSendCmd_Run(t *testing.T) {
 }
 
 func TestChatsSendCmd_DryRun(t *testing.T) {
-	// DryRun does not call the server, so no tool responses needed.
-	ctx, buf, cleanup := setupTestServer(t, nil)
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "PostMessage",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"chatId":  map[string]any{"type": "string"},
+					"content": map[string]any{"type": "string"},
+				},
+				"required": []any{"chatId", "content"},
+			},
+		},
+	}
+	ctx, buf, cleanup := setupTestServerWithSchemas(t, nil, schemas)
 	defer cleanup()
 	ctx.DryRun = true
 
@@ -217,6 +249,13 @@ func TestChatsSendCmd_DryRun(t *testing.T) {
 	}
 	if result["action"] != "chats.send" {
 		t.Errorf("expected action=chats.send, got %v", result["action"])
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object in dry-run output")
+	}
+	if val["valid"] != true {
+		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
 	}
 }
 
@@ -371,7 +410,21 @@ func TestChatsListCmd_Run(t *testing.T) {
 }
 
 func TestChannelsPostCmd_DryRun(t *testing.T) {
-	ctx, buf, cleanup := setupTestServer(t, nil)
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "PostChannelMessage",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"teamId":    map[string]any{"type": "string"},
+					"channelId": map[string]any{"type": "string"},
+					"content":   map[string]any{"type": "string"},
+				},
+				"required": []any{"teamId", "channelId", "content"},
+			},
+		},
+	}
+	ctx, buf, cleanup := setupTestServerWithSchemas(t, nil, schemas)
 	defer cleanup()
 	ctx.DryRun = true
 
@@ -390,10 +443,29 @@ func TestChannelsPostCmd_DryRun(t *testing.T) {
 	if result["action"] != "channels.post" {
 		t.Errorf("expected action=channels.post, got %v", result["action"])
 	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object in dry-run output")
+	}
+	if val["valid"] != true {
+		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
+	}
 }
 
 func TestChatsDeleteCmd_DryRun(t *testing.T) {
-	ctx, buf, cleanup := setupTestServer(t, nil)
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "DeleteChat",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"chatId": map[string]any{"type": "string"},
+				},
+				"required": []any{"chatId"},
+			},
+		},
+	}
+	ctx, buf, cleanup := setupTestServerWithSchemas(t, nil, schemas)
 	defer cleanup()
 	ctx.DryRun = true
 
@@ -411,6 +483,13 @@ func TestChatsDeleteCmd_DryRun(t *testing.T) {
 	}
 	if result["action"] != "chats.delete" {
 		t.Errorf("expected action=chats.delete, got %v", result["action"])
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object in dry-run output")
+	}
+	if val["valid"] != true {
+		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
 	}
 }
 

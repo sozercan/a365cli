@@ -83,7 +83,7 @@ type KnowledgeConfigureCmd struct {
 
 func (c *KnowledgeConfigureCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(knowledgeEndpoint(), "configure_federated_knowledge",
 			fmt.Sprintf("configure knowledge source %q", c.DisplayName),
 			map[string]any{
 				"action":      "knowledge.configure",
@@ -125,7 +125,7 @@ type KnowledgeIngestCmd struct {
 
 func (c *KnowledgeIngestCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(knowledgeEndpoint(), "ingest_federated_knowledge",
 			fmt.Sprintf("ingest knowledge config %s", c.ConfigID),
 			map[string]any{
 				"action":                "knowledge.ingest",
@@ -163,7 +163,7 @@ type KnowledgeDeleteCmd struct {
 
 func (c *KnowledgeDeleteCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(knowledgeEndpoint(), "delete_federated_knowledge",
 			fmt.Sprintf("delete knowledge config %s", c.ConfigID),
 			map[string]any{
 				"action":                "knowledge.delete",

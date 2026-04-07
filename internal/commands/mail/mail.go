@@ -141,9 +141,21 @@ type MailSendCmd struct {
 
 func (c *MailSendCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		mcpArgs := map[string]any{
+			"to":      c.To,
+			"subject": c.Subject,
+			"body":    c.Body,
+		}
+		if len(c.CC) > 0 {
+			mcpArgs["cc"] = c.CC
+		}
+		if len(c.BCC) > 0 {
+			mcpArgs["bcc"] = c.BCC
+		}
+		return ctx.ValidateDryRun(mailEndpoint(), "SendEmailWithAttachments",
 			fmt.Sprintf("send email to %v with subject %q", c.To, c.Subject),
 			map[string]any{"action": "mail.send", "to": c.To, "subject": c.Subject, "body_len": len(c.Body)},
+			mcpArgs,
 		)
 	}
 
@@ -185,9 +197,10 @@ type MailReplyCmd struct {
 
 func (c *MailReplyCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(mailEndpoint(), "ReplyToMessage",
 			fmt.Sprintf("reply to message %s", c.ID),
 			map[string]any{"action": "mail.reply", "id": c.ID, "comment_len": len(c.Comment)},
+			map[string]any{"id": c.ID, "comment": c.Comment, "sendImmediately": true},
 		)
 	}
 
@@ -221,9 +234,10 @@ type MailReplyAllCmd struct {
 
 func (c *MailReplyAllCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(mailEndpoint(), "ReplyAllToMessage",
 			fmt.Sprintf("reply-all to message %s", c.ID),
 			map[string]any{"action": "mail.reply-all", "id": c.ID},
+			map[string]any{"id": c.ID, "comment": c.Comment, "sendImmediately": true},
 		)
 	}
 
@@ -257,9 +271,17 @@ type MailForwardCmd struct {
 
 func (c *MailForwardCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		mcpArgs := map[string]any{
+			"messageId":    c.ID,
+			"additionalTo": c.To,
+		}
+		if c.Comment != "" {
+			mcpArgs["introComment"] = c.Comment
+		}
+		return ctx.ValidateDryRun(mailEndpoint(), "ForwardMessage",
 			fmt.Sprintf("forward message %s to %v", c.ID, c.To),
 			map[string]any{"action": "mail.forward", "id": c.ID, "to": c.To},
+			mcpArgs,
 		)
 	}
 
@@ -295,7 +317,7 @@ type MailDeleteCmd struct {
 
 func (c *MailDeleteCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(mailEndpoint(), "DeleteMessage",
 			fmt.Sprintf("delete message %s", c.ID),
 			map[string]any{"action": "mail.delete", "id": c.ID},
 		)
@@ -329,7 +351,7 @@ type MailFlagCmd struct {
 
 func (c *MailFlagCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(mailEndpoint(), "FlagEmail",
 			fmt.Sprintf("flag email %s as %s", c.ID, c.Status),
 			map[string]any{"action": "mail.flag", "messageId": c.ID, "flagStatus": c.Status},
 		)
@@ -365,7 +387,7 @@ type MailDraftCmd struct {
 
 func (c *MailDraftCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun("create draft email",
+		return ctx.ValidateDryRun(mailEndpoint(), "CreateDraftMessage", "create draft email",
 			map[string]any{"action": "mail.draft", "subject": c.Subject, "to": c.To},
 		)
 	}
@@ -408,7 +430,7 @@ type MailSendDraftCmd struct {
 
 func (c *MailSendDraftCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(mailEndpoint(), "SendDraftMessage",
 			fmt.Sprintf("send draft %s", c.ID),
 			map[string]any{"action": "mail.send-draft", "id": c.ID},
 		)
@@ -467,7 +489,7 @@ type MailUpdateCmd struct {
 
 func (c *MailUpdateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(mailEndpoint(), "UpdateMessage",
 			fmt.Sprintf("update message %s", c.ID),
 			map[string]any{"action": "mail.update", "id": c.ID},
 		)
@@ -543,7 +565,7 @@ type MailUploadCmd struct {
 
 func (c *MailUploadCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(mailEndpoint(), "UploadAttachment",
 			fmt.Sprintf("upload attachment %q to message %s", c.FileName, c.MessageID),
 			map[string]any{"action": "mail.upload-attachment", "messageId": c.MessageID, "fileName": c.FileName},
 		)
@@ -583,7 +605,7 @@ type MailDeleteAttachCmd struct {
 
 func (c *MailDeleteAttachCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(mailEndpoint(), "DeleteAttachment",
 			fmt.Sprintf("delete attachment %s from message %s", c.AttachmentID, c.MessageID),
 			map[string]any{"action": "mail.delete-attachment", "messageId": c.MessageID, "attachmentId": c.AttachmentID},
 		)
@@ -624,7 +646,7 @@ type MailUpdateDraftCmd struct {
 
 func (c *MailUpdateDraftCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(mailEndpoint(), "UpdateDraft",
 			fmt.Sprintf("update draft %s", c.MessageID),
 			map[string]any{"action": "mail.update-draft", "messageId": c.MessageID},
 		)
@@ -674,7 +696,7 @@ type MailDraftAttachCmd struct {
 
 func (c *MailDraftAttachCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(mailEndpoint(), "AddDraftAttachments",
 			fmt.Sprintf("add attachments to draft %s", c.MessageID),
 			map[string]any{"action": "mail.draft-attachments", "messageId": c.MessageID, "attachmentUris": c.AttachmentUris},
 		)
@@ -707,7 +729,7 @@ type MailReplyThreadCmd struct {
 
 func (c *MailReplyThreadCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(mailEndpoint(), "ReplyWithFullThread",
 			fmt.Sprintf("reply with full thread to message %s", c.MessageID),
 			map[string]any{"action": "mail.reply-thread", "messageId": c.MessageID},
 		)
@@ -739,7 +761,7 @@ type MailReplyAllThreadCmd struct {
 
 func (c *MailReplyAllThreadCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(mailEndpoint(), "ReplyAllWithFullThread",
 			fmt.Sprintf("reply-all with full thread to message %s", c.MessageID),
 			map[string]any{"action": "mail.reply-all-thread", "messageId": c.MessageID},
 		)
@@ -771,7 +793,7 @@ type MailForwardThreadCmd struct {
 
 func (c *MailForwardThreadCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(mailEndpoint(), "ForwardMessageWithFullThread",
 			fmt.Sprintf("forward with full thread message %s", c.MessageID),
 			map[string]any{"action": "mail.forward-thread", "messageId": c.MessageID},
 		)

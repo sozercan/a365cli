@@ -116,12 +116,22 @@ type TriggersCreateCmd struct {
 
 func (c *TriggersCreateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("create trigger %q", c.Name),
+		mcpArgs := map[string]any{
+			"validationToken": c.ValidationToken,
+			"name":            c.Name,
+			"eventType":       c.EventType,
+			"logic":           c.Logic,
+			"conditions":      c.Conditions,
+			"instructions":    c.Instructions,
+		}
+		return ctx.ValidateDryRun(triggersEndpoint(), "create_trigger_definition", fmt.Sprintf("create trigger %q", c.Name),
 			map[string]any{
 				"action":    "triggers.create",
 				"name":      c.Name,
 				"eventType": c.EventType,
-			})
+			},
+			mcpArgs,
+		)
 	}
 
 	client := ctx.NewMCPClient(triggersEndpoint())
@@ -208,11 +218,17 @@ type TriggersUpdateCmd struct {
 
 func (c *TriggersUpdateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("update trigger %s", c.ID),
+		mcpArgs := map[string]any{
+			"validationToken": c.ValidationToken,
+			"id":              c.ID,
+		}
+		return ctx.ValidateDryRun(triggersEndpoint(), "update_trigger_definition", fmt.Sprintf("update trigger %s", c.ID),
 			map[string]any{
 				"action": "triggers.update",
 				"id":     c.ID,
-			})
+			},
+			mcpArgs,
+		)
 	}
 
 	client := ctx.NewMCPClient(triggersEndpoint())
@@ -244,7 +260,7 @@ type TriggersDeleteCmd struct {
 
 func (c *TriggersDeleteCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("delete trigger %s", c.ID),
+		return ctx.ValidateDryRun(triggersEndpoint(), "delete_trigger_definition", fmt.Sprintf("delete trigger %s", c.ID),
 			map[string]any{
 				"action": "triggers.delete",
 				"id":     c.ID,

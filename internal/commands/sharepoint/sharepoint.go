@@ -290,7 +290,7 @@ type SPMkdirCmd struct {
 
 func (c *SPMkdirCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spEndpoint(), "createFolder",
 			fmt.Sprintf("create folder %q in %s", c.FolderName, c.ParentPath),
 			map[string]any{
 				"action":     "sharepoint.mkdir",
@@ -335,7 +335,7 @@ type SPWriteCmd struct {
 
 func (c *SPWriteCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spEndpoint(), "createSmallTextFile",
 			fmt.Sprintf("create file %q in %s", c.FileName, c.FolderPath),
 			map[string]any{
 				"action":     "sharepoint.write",
@@ -390,7 +390,7 @@ type SPUploadCmd struct {
 
 func (c *SPUploadCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spEndpoint(), "uploadFileFromUrl",
 			fmt.Sprintf("upload %q from %s to %s", c.FileName, c.SourceURL, c.DestinationFolderPath),
 			map[string]any{
 				"action":                "sharepoint.upload",
@@ -439,7 +439,7 @@ func (c *SPDeleteCmd) Run(ctx *commands.Context) error {
 		if target == "" {
 			target = c.ItemID
 		}
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spEndpoint(), "deleteFileOrFolder",
 			fmt.Sprintf("delete %s from drive %s", target, c.DriveID),
 			map[string]any{
 				"action":   "sharepoint.rm",
@@ -497,7 +497,7 @@ type SPMoveCmd struct {
 
 func (c *SPMoveCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spEndpoint(), "moveFileOrFolder",
 			fmt.Sprintf("move %s to %s", c.SourceItemPath, c.DestinationFolderPath),
 			map[string]any{
 				"action":                "sharepoint.mv",
@@ -543,7 +543,7 @@ type SPCopyCmd struct {
 
 func (c *SPCopyCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spEndpoint(), "copyFileOrFolder",
 			fmt.Sprintf("copy %s to %s", c.SourceItemPath, c.DestinationFolderPath),
 			map[string]any{
 				"action":                "sharepoint.cp",
@@ -588,7 +588,7 @@ type SPRenameCmd struct {
 
 func (c *SPRenameCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spEndpoint(), "renameFileOrFolder",
 			fmt.Sprintf("rename %s to %q", c.ItemPath, c.NewName),
 			map[string]any{
 				"action":   "sharepoint.rename",
@@ -632,7 +632,7 @@ type SPShareCmd struct {
 
 func (c *SPShareCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spEndpoint(), "shareFileOrFolder",
 			fmt.Sprintf("create %s/%s sharing link for %s", c.Type, c.Scope, c.ItemPath),
 			map[string]any{
 				"action":   "sharepoint.share",
@@ -677,7 +677,7 @@ type SPLabelCmd struct {
 
 func (c *SPLabelCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(spEndpoint(), "setSensitivityLabelOnFile",
 			fmt.Sprintf("set sensitivity label %s on item %s", c.LabelID, c.ItemID),
 			map[string]any{
 				"action":  "sharepoint.label",

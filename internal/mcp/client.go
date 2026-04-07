@@ -162,6 +162,32 @@ func (c *Client) ListTools(ctx context.Context) (*JSONRPCResponse, error) {
 	return c.doRequest(ctx, req)
 }
 
+// ListToolsCached returns tools from the session cache if available and fresh.
+// On a cache miss, it calls ListTools and caches the result for future use.
+func (c *Client) ListToolsCached(ctx context.Context) ([]ToolInfo, error) {
+	if tools := LoadTools(c.endpoint); len(tools) > 0 {
+		c.logf("--- MCP reusing cached tools for %s", c.endpoint)
+		return tools, nil
+	}
+
+	resp, err := c.ListTools(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Error != nil {
+		return nil, resp.Error
+	}
+	if resp.Result == nil {
+		return nil, fmt.Errorf("tools/list: empty result")
+	}
+
+	tools := resp.Result.Tools
+	// Best-effort cache — don't fail if caching errors.
+	SaveTools(c.endpoint, tools)
+
+	return tools, nil
+}
+
 // isSessionError returns true when the response or error indicates the server
 // rejected the request due to an invalid or expired session.
 func isSessionError(resp *JSONRPCResponse, err error) bool {

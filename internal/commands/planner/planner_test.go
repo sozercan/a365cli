@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/sozercan/a365cli/internal/mcp"
 	"github.com/sozercan/a365cli/internal/testutil"
 )
 
@@ -35,7 +36,20 @@ func TestPlansListCmd_Run(t *testing.T) {
 }
 
 func TestTasksCreateCmd_DryRun(t *testing.T) {
-	ctx, buf := testutil.SetupTestServer(t, nil)
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "CreateTask",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"planId": map[string]any{"type": "string"},
+					"title":  map[string]any{"type": "string"},
+				},
+				"required": []any{"planId", "title"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
 	ctx.DryRun = true
 
 	cmd := &TasksCreateCmd{PlanID: "plan-001", Title: "Fix login bug"}
@@ -52,5 +66,12 @@ func TestTasksCreateCmd_DryRun(t *testing.T) {
 	}
 	if result["action"] != "planner.create-task" {
 		t.Errorf("expected action=planner.create-task, got %v", result["action"])
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object in dry-run output")
+	}
+	if val["valid"] != true {
+		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
 	}
 }

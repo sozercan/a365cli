@@ -125,7 +125,7 @@ type ChannelsPostCmd struct {
 
 func (c *ChannelsPostCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(teamsEndpoint(), "PostChannelMessage",
 			fmt.Sprintf("post message to channel %s in team %s", c.ChannelID, c.TeamID),
 			map[string]any{
 				"action":    "channels.post",
@@ -167,7 +167,7 @@ type ChannelsReplyCmd struct {
 
 func (c *ChannelsReplyCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(teamsEndpoint(), "ReplyToChannelMessage",
 			fmt.Sprintf("reply to message %s in channel %s", c.MessageID, c.ChannelID),
 			map[string]any{
 				"action":    "channels.reply",
@@ -212,7 +212,7 @@ type ChannelsCreateCmd struct {
 
 func (c *ChannelsCreateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(teamsEndpoint(), "CreateChannel",
 			fmt.Sprintf("create channel %q in team %s", c.DisplayName, c.TeamID),
 			map[string]any{
 				"action":      "channels.create",
@@ -257,7 +257,7 @@ type ChannelsCreatePrivateCmd struct {
 
 func (c *ChannelsCreatePrivateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(teamsEndpoint(), "CreatePrivateChannel",
 			fmt.Sprintf("create private channel %q in team %s", c.DisplayName, c.TeamID),
 			map[string]any{
 				"action":      "channels.create-private",
@@ -303,7 +303,7 @@ type ChannelsUpdateCmd struct {
 
 func (c *ChannelsUpdateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(teamsEndpoint(), "UpdateChannel",
 			fmt.Sprintf("update channel %s in team %s", c.ChannelID, c.TeamID),
 			map[string]any{
 				"action":      "channels.update",
@@ -394,7 +394,7 @@ type ChannelsAddMemberCmd struct {
 
 func (c *ChannelsAddMemberCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(teamsEndpoint(), "AddChannelMember",
 			fmt.Sprintf("add member %s to channel %s", c.UserID, c.ChannelID),
 			map[string]any{
 				"action":    "channels.add-member",
@@ -436,7 +436,7 @@ type ChannelsUpdateMemberCmd struct {
 
 func (c *ChannelsUpdateMemberCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(teamsEndpoint(), "UpdateChannelMember",
 			fmt.Sprintf("update member %s role to %s in channel %s", c.MembershipID, c.Role, c.ChannelID),
 			map[string]any{
 				"action":       "channels.update-member",

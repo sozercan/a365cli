@@ -27,7 +27,7 @@ type WordCreateCmd struct {
 
 func (c *WordCreateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(wordEndpoint(), "CreateDocument",
 			fmt.Sprintf("create Word document %q", c.FileName),
 			map[string]any{"action": "word.create", "desiredFileName": c.FileName},
 		)
@@ -88,7 +88,7 @@ type WordCommentCmd struct {
 
 func (c *WordCommentCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(wordEndpoint(), "AddComment",
 			fmt.Sprintf("add comment to document %s", c.DocumentID),
 			map[string]any{"action": "word.comment", "driveId": c.DriveID, "documentId": c.DocumentID},
 		)
@@ -125,7 +125,7 @@ type WordReplyCmd struct {
 
 func (c *WordReplyCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(wordEndpoint(), "ReplyToComment",
 			fmt.Sprintf("reply to comment %s on document %s", c.CommentID, c.DocumentID),
 			map[string]any{"action": "word.reply", "commentId": c.CommentID, "driveId": c.DriveID, "documentId": c.DocumentID},
 		)

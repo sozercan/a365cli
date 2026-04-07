@@ -85,7 +85,7 @@ type PlansCreateCmd struct {
 
 func (c *PlansCreateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("create plan %q", c.Title),
+		return ctx.ValidateDryRun(plannerEndpoint(), "CreatePlan", fmt.Sprintf("create plan %q", c.Title),
 			map[string]any{"action": "planner.create-plan", "title": c.Title})
 	}
 	client := ctx.NewMCPClient(plannerEndpoint())
@@ -110,7 +110,7 @@ type PlansUpdateCmd struct {
 
 func (c *PlansUpdateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("update plan %s", c.ID),
+		return ctx.ValidateDryRun(plannerEndpoint(), "UpdatePlan", fmt.Sprintf("update plan %s", c.ID),
 			map[string]any{"action": "planner.update-plan", "planId": c.ID})
 	}
 	client := ctx.NewMCPClient(plannerEndpoint())
@@ -199,7 +199,7 @@ type TasksCreateCmd struct {
 
 func (c *TasksCreateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("create task %q in plan %s", c.Title, c.PlanID),
+		return ctx.ValidateDryRun(plannerEndpoint(), "CreateTask", fmt.Sprintf("create task %q in plan %s", c.Title, c.PlanID),
 			map[string]any{"action": "planner.create-task", "planId": c.PlanID, "title": c.Title})
 	}
 	client := ctx.NewMCPClient(plannerEndpoint())
@@ -226,7 +226,7 @@ type TasksUpdateCmd struct {
 
 func (c *TasksUpdateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("update task %s", c.ID),
+		return ctx.ValidateDryRun(plannerEndpoint(), "UpdateTask", fmt.Sprintf("update task %s", c.ID),
 			map[string]any{"action": "planner.update-task", "taskId": c.ID})
 	}
 	client := ctx.NewMCPClient(plannerEndpoint())
@@ -304,7 +304,7 @@ type GoalsCreateCmd struct {
 
 func (c *GoalsCreateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("create goal %q in plan %s", c.Title, c.PlanID),
+		return ctx.ValidateDryRun(plannerEndpoint(), "CreateGoal", fmt.Sprintf("create goal %q in plan %s", c.Title, c.PlanID),
 			map[string]any{"action": "planner.create-goal", "planId": c.PlanID, "title": c.Title})
 	}
 	client := ctx.NewMCPClient(plannerEndpoint())
@@ -331,7 +331,7 @@ type GoalsUpdateCmd struct {
 
 func (c *GoalsUpdateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("update goal %s", c.ID),
+		return ctx.ValidateDryRun(plannerEndpoint(), "UpdateGoal", fmt.Sprintf("update goal %s", c.ID),
 			map[string]any{"action": "planner.update-goal", "goalId": c.ID})
 	}
 	client := ctx.NewMCPClient(plannerEndpoint())

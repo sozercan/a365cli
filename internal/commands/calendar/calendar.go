@@ -107,12 +107,25 @@ type CalCreateCmd struct {
 
 func (c *CalCreateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		mcpArgs := map[string]any{
+			"subject":        c.Subject,
+			"startDateTime":  c.Start,
+			"endDateTime":    c.End,
+			"attendeeEmails": c.Attendees,
+		}
+		if c.Body != "" {
+			mcpArgs["body"] = c.Body
+		}
+		if c.IsOnline {
+			mcpArgs["isOnlineMeeting"] = true
+		}
+		return ctx.ValidateDryRun(calEndpoint(), "CreateEvent",
 			fmt.Sprintf("create event %q from %s to %s", c.Subject, c.Start, c.End),
 			map[string]any{
 				"action": "calendar.create", "subject": c.Subject,
 				"start": c.Start, "end": c.End, "attendees": c.Attendees,
 			},
+			mcpArgs,
 		)
 	}
 
@@ -157,7 +170,7 @@ type CalUpdateCmd struct {
 
 func (c *CalUpdateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(
+		return ctx.ValidateDryRun(calEndpoint(), "UpdateEvent",
 			fmt.Sprintf("update event %s", c.ID),
 			map[string]any{"action": "calendar.update", "eventId": c.ID},
 		)
@@ -201,7 +214,7 @@ type CalDeleteCmd struct {
 
 func (c *CalDeleteCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("delete event %s", c.ID),
+		return ctx.ValidateDryRun(calEndpoint(), "DeleteEventById", fmt.Sprintf("delete event %s", c.ID),
 			map[string]any{"action": "calendar.delete", "eventId": c.ID})
 	}
 	if err := ctx.Confirm(fmt.Sprintf("delete event %s", c.ID)); err != nil {
@@ -232,7 +245,7 @@ type CalAcceptCmd struct {
 
 func (c *CalAcceptCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("accept event %s", c.ID),
+		return ctx.ValidateDryRun(calEndpoint(), "AcceptEvent", fmt.Sprintf("accept event %s", c.ID),
 			map[string]any{"action": "calendar.accept", "eventId": c.ID})
 	}
 
@@ -258,7 +271,7 @@ type CalTentativeCmd struct {
 
 func (c *CalTentativeCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("tentatively accept event %s", c.ID),
+		return ctx.ValidateDryRun(calEndpoint(), "TentativelyAcceptEvent", fmt.Sprintf("tentatively accept event %s", c.ID),
 			map[string]any{"action": "calendar.tentative", "eventId": c.ID})
 	}
 
@@ -284,7 +297,7 @@ type CalDeclineCmd struct {
 
 func (c *CalDeclineCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("decline event %s", c.ID),
+		return ctx.ValidateDryRun(calEndpoint(), "DeclineEvent", fmt.Sprintf("decline event %s", c.ID),
 			map[string]any{"action": "calendar.decline", "eventId": c.ID})
 	}
 
@@ -310,7 +323,7 @@ type CalCancelCmd struct {
 
 func (c *CalCancelCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("cancel event %s", c.ID),
+		return ctx.ValidateDryRun(calEndpoint(), "CancelEvent", fmt.Sprintf("cancel event %s", c.ID),
 			map[string]any{"action": "calendar.cancel", "eventId": c.ID})
 	}
 	if err := ctx.Confirm(fmt.Sprintf("cancel event %s", c.ID)); err != nil {
@@ -341,8 +354,14 @@ type CalForwardCmd struct {
 
 func (c *CalForwardCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.Output.PrintDryRun(fmt.Sprintf("forward event %s to %v", c.ID, c.Recipients),
-			map[string]any{"action": "calendar.forward", "eventId": c.ID, "to": c.Recipients})
+		mcpArgs := map[string]any{"eventId": c.ID, "recipientEmails": c.Recipients}
+		if c.Comment != "" {
+			mcpArgs["comment"] = c.Comment
+		}
+		return ctx.ValidateDryRun(calEndpoint(), "ForwardEvent", fmt.Sprintf("forward event %s to %v", c.ID, c.Recipients),
+			map[string]any{"action": "calendar.forward", "eventId": c.ID, "to": c.Recipients},
+			mcpArgs,
+		)
 	}
 
 	client := ctx.NewMCPClient(calEndpoint())

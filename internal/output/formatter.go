@@ -88,6 +88,43 @@ func (f *Formatter) PrintDryRun(action string, data map[string]any) error {
 	}
 }
 
+// PrintDryRunValidated outputs what WOULD happen, with optional schema validation results.
+// If validation is nil, a "validation skipped" warning is shown.
+// Returns an error when validation fails (for non-zero exit code).
+func (f *Formatter) PrintDryRunValidated(action string, data map[string]any, v *mcp.ValidationResult) error {
+	switch f.Format {
+	case FormatJSON:
+		data["dry_run"] = true
+		if v != nil {
+			data["validation"] = v
+		} else {
+			data["validation"] = nil
+		}
+		if err := f.writeJSON(data); err != nil {
+			return err
+		}
+		if v != nil && !v.Valid {
+			return fmt.Errorf("validation failed: %d error(s)", len(v.Errors))
+		}
+		return nil
+	default:
+		fmt.Fprintf(f.Writer, "Dry run: would %s\n", action)
+		if v == nil {
+			fmt.Fprintln(f.Writer, "\n⚠ Validation skipped (could not reach server)")
+			return nil
+		}
+		if v.Valid {
+			fmt.Fprintln(f.Writer, "\n✓ Arguments valid against server schema")
+			return nil
+		}
+		fmt.Fprintln(f.Writer, "\n✗ Validation errors:")
+		for _, e := range v.Errors {
+			fmt.Fprintf(f.Writer, "  - %s\n", e)
+		}
+		return fmt.Errorf("validation failed: %d error(s)", len(v.Errors))
+	}
+}
+
 // PrintRaw outputs a raw MCP response (fallback for unstructured content).
 // Used when we can't parse the response into typed data.
 func (f *Formatter) PrintRaw(resp *mcp.JSONRPCResponse) error {
