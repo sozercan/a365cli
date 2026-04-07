@@ -13,14 +13,14 @@ See [docs/architecture.md](docs/architecture.md) for the full file layout and co
 ## Building
 
 ```bash
-make build      # Build + ad-hoc codesign on macOS
+make build      # Build
 make test       # Run all tests with verbose output
 make test-short # Run tests without verbose output
 make lint       # Format + vet
 make clean      # Remove build artifacts
 ```
 
-The Makefile auto-signs the binary on macOS so the OS keychain doesn't re-prompt on every rebuild.
+The Makefile handles build configuration automatically.
 
 ## Adding a New Service
 

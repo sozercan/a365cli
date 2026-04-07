@@ -8,7 +8,7 @@ A standalone, agent-friendly CLI for Microsoft 365 via [agent365](https://agent3
 - **170+ MCP tools** — full API coverage with dynamic server discovery
 - **Agent-friendly** — structured `--output=json` for LLM tool use, `--no-input` for non-interactive execution, `--dry-run` for safe exploration
 - **Three output modes** — human tables (default), JSON for scripting, TSV for piping
-- **Interactive browser auth** with PKCE — tokens cached in OS keychain, silent re-auth on subsequent runs
+- **Interactive browser auth** with PKCE — silent re-auth on subsequent runs
 - **Resilient** — automatic retries with backoff on 502/503/429, MCP session caching
 - **Configurable** — `~/.a365/config.json` for persistent defaults, env vars, CLI flags
 - **Shell completion** — bash, zsh, fish

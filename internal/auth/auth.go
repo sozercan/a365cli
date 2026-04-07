@@ -37,12 +37,7 @@ func NewCredential(clientID, tenantID string) (*Credential, error) {
 	}
 
 	// Enable persistent token cache so tokens (including refresh tokens)
-	// survive between CLI invocations. This uses the OS credential store
-	// (macOS Keychain, Windows Credential Manager, Linux secret service).
-	// On macOS, click "Always Allow" when prompted to stop future prompts.
-	// Note: requires CGO; non-CGO builds skip this (tokens still work per-session).
-	applyTokenCache(opts)
-
+	// survive between CLI invocations via the auth record file.
 	cred, err := azidentity.NewInteractiveBrowserCredential(opts)
 	if err != nil {
 		return nil, fmt.Errorf("create credential: %w", err)

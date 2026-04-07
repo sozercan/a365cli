@@ -8,7 +8,7 @@
 ## Build and Test
 
 ```bash
-make build          # build + codesign on macOS
+make build          # build
 make test           # go test ./... -v
 go test ./... -cover  # with coverage
 go vet ./...        # lint
@@ -54,7 +54,7 @@ Adding a new service = new directory in `internal/commands/`, register in `main.
 ## Workflow
 
 - Use plan mode for architectural changes or new service additions
-- Prefer `make build` over `go build` (includes codesign on macOS)
+- Prefer `make build` over `go build`
 - Run `go test ./... -count=1` after any code change
 - Run `go vet ./...` before committing
 - When adding a new M365 service, follow the pattern in CONTRIBUTING.md "Adding a New Service"

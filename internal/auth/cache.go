@@ -8,7 +8,6 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/sozercan/a365cli/internal/config"
-	"github.com/zalando/go-keyring"
 )
 
 // authRecordPath returns the path to the auth record JSON file.
@@ -74,9 +73,6 @@ func RemoveAuthRecord() error {
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove auth record: %w", err)
 	}
-
-	// Remove keychain entry (best effort)
-	_ = keyring.Delete(config.KeyringService, "token")
 
 	return nil
 }

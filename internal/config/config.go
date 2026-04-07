@@ -23,9 +23,6 @@ const (
 
 	// AuthRecordFile is the filename for cached auth record.
 	AuthRecordFile = "auth-record.json"
-
-	// KeyringService is the OS keychain service name.
-	KeyringService = "a365"
 )
 
 // Servers maps friendly names to agent365 MCP server names.

@@ -15,7 +15,7 @@ User
   |
   ├── mcp/client        JSON-RPC over HTTP+SSE, retry, session cache
   |
-  └── auth/             InteractiveBrowserCredential + PKCE + OS keychain
+  └── auth/             InteractiveBrowserCredential + PKCE + auth record
        |
        agent365.svc.cloud.microsoft
        /agents/servers/{mcp_server}/
@@ -83,12 +83,12 @@ Browser ──PKCE──► Entra ID (login.microsoftonline.com)
                   Access Token (JWT)
                        |
                   ├── Scope: ea9ffc3e-.../.default (all agent365 scopes)
-                  ├── Cached in OS keychain via azidentity/cache
+                  ├── Cached in ~/.a365/auth-record.json for silent refresh
                   └── Auth record in ~/.a365/auth-record.json for silent refresh
 ```
 
 - **Flow**: Interactive browser + PKCE (passes org Conditional Access on managed devices)
-- **Token cache**: OS keychain (macOS Keychain, Windows Credential Manager) via `azidentity/cache`
+- **Token cache**: `~/.a365/auth-record.json` enables silent token refresh across CLI invocations
 - **Auth record**: `~/.a365/auth-record.json` enables silent token refresh across CLI invocations
 - **Scope**: `ea9ffc3e-8a23-4a7d-836d-234d7c7565c1/.default` — requests all granted agent365 scopes at once
 
@@ -130,14 +130,14 @@ This returns all available servers with their URLs, scopes, and audiences — us
 | **`text/tabwriter` for tables** | Standard library, zero dependencies |
 | **Retry at HTTP layer** | Catches transient 502/503/429 from the gateway without command-level changes |
 | **Session cache as JSON file** | Simple, debuggable, no external dependencies |
-| **OS keychain for tokens** | Secure, survives reboots, handled by Azure SDK |
+| **Auth record for tokens** | Simple file-based, portable, no OS-specific prompts |
 
 ## File Layout
 
 | Directory | Purpose |
 |-----------|---------|
 | `internal/mcp/` | MCP JSON-RPC client, SSE parser, session cache, types, schema validation |
-| `internal/auth/` | Entra ID credential, token cache, auth record persistence |
+| `internal/auth/` | Entra ID credential, auth record persistence |
 | `internal/config/` | Server endpoint map, constants, `~/.a365/config.json` support |
 | `internal/output/` | 3-mode formatter, per-entity columns, table/TSV/JSON renderers, HTML stripping, MCP response extraction |
 | `internal/commands/` | Shared context, auth commands, completion |

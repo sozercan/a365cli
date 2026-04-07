@@ -5,9 +5,9 @@ LDFLAGS := -ldflags "-X github.com/sozercan/a365cli/internal/version.Version=$(V
 
 .PHONY: build install test clean lint fmt vet
 
-## build: Build the a365 binary
+## build: Build the a365 binary (CGO disabled to avoid macOS Keychain prompts)
 build:
-	go build $(LDFLAGS) -o $(BINARY) .
+	CGO_ENABLED=0 go build $(LDFLAGS) -o $(BINARY) .
 
 ## install: Install a365 to $GOPATH/bin
 install:
