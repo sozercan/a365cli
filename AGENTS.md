@@ -22,8 +22,8 @@ Every command follows this exact pattern:
 
 ```go
 func (c *MyCmd) Run(ctx *commands.Context) error {
-    // 1. Dry-run guard (write ops only)
-    if ctx.DryRun { return ctx.Output.PrintDryRun(...) }
+    // 1. Dry-run guard with schema validation (write ops only)
+    if ctx.DryRun { return ctx.ValidateDryRun(endpoint(), "ToolName", "do X", displayData, mcpArgs) }
     // 2. Confirm guard (destructive ops only)
     if err := ctx.Confirm("delete X"); err != nil { return err }
     // 3. Create client + initialize
@@ -43,10 +43,12 @@ Adding a new service = new directory in `internal/commands/`, register in `main.
 
 - Use `config.Endpoint("service")` for server URLs, never hardcode
 - Use `output.ExtractContent()` then `ToRows()` for list data
-- Write ops: always add `--dry-run` guard
+- Write ops: always add `--dry-run` guard with `ctx.ValidateDryRun(endpoint, toolName, action, displayData, mcpArgs)`
+- When display keys differ from MCP arg keys, pass mcpArgs as the 5th parameter for correct validation
 - Destructive ops: add `ctx.Confirm()` after dry-run check
 - Kong struct tags: `arg:""` for positional, `help:""` for description, `optional:""` for optional
 - Test with `httptest.NewServer` mocks, override endpoint via `A365_ENDPOINT` env var
+- Use `testutil.SetupTestServerWithSchemas` for dry-run tests that verify validation
 - Keep column `Width` values consistent: names=30-40, IDs=36, dates=10, types=10
 
 ## Workflow

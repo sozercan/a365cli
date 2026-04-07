@@ -26,7 +26,7 @@ User
 Every command follows the same path:
 
 1. **Parse** — kong parses CLI args into a typed Go struct
-2. **Safety** — `--dry-run` short-circuits before any network call; destructive ops prompt via `ctx.Confirm()`
+2. **Safety** — `--dry-run` connects to the server, fetches tool schemas via `ListToolsCached()`, validates args against the JSON Schema, and prints the result without executing the tool; destructive ops prompt via `ctx.Confirm()`
 3. **Auth** — `EnsureAuth()` loads cached credentials or triggers browser login
 4. **Session** — `Initialize()` checks `~/.a365/sessions.json` for a cached session; if valid, skips the MCP handshake
 5. **Request** — `CallTool()` sends a JSON-RPC `tools/call` POST with `Authorization: Bearer` and `Mcp-Session-Id` headers
@@ -60,7 +60,7 @@ Each service gets its own MCP session:
 
 1. First request sends `initialize` → server returns `Mcp-Session-Id` header
 2. Subsequent requests include the session ID
-3. Sessions cached in `~/.a365/sessions.json` with 30-minute TTL
+3. Sessions cached in `~/.a365/sessions.json` with 30-minute TTL (includes tool schemas for `--dry-run` validation)
 4. On session errors (401/403, "invalid session"), cache is cleared and session re-established automatically
 
 ### Response Patterns
@@ -136,7 +136,7 @@ This returns all available servers with their URLs, scopes, and audiences — us
 
 | Directory | Purpose |
 |-----------|---------|
-| `internal/mcp/` | MCP JSON-RPC client, SSE parser, session cache, types |
+| `internal/mcp/` | MCP JSON-RPC client, SSE parser, session cache, types, schema validation |
 | `internal/auth/` | Entra ID credential, token cache, auth record persistence |
 | `internal/config/` | Server endpoint map, constants, `~/.a365/config.json` support |
 | `internal/output/` | 3-mode formatter, per-entity columns, table/TSV/JSON renderers, HTML stripping, MCP response extraction |

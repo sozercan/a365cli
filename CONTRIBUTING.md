@@ -132,7 +132,7 @@ go test ./internal/mcp/... -v    # MCP client tests only
 go test ./internal/output/... -v # Output formatting tests only
 ```
 
-The test suite uses `httptest.NewServer` for MCP client tests and `bytes.Buffer` injection for output formatter tests. No real network calls in tests.
+The test suite uses `httptest.NewServer` for MCP client tests and `bytes.Buffer` injection for output formatter tests. Use `testutil.SetupTestServerWithSchemas` for dry-run tests that verify schema validation. No real network calls in tests.
 
 ## Discovering MCP Tools
 
