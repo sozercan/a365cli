@@ -31,7 +31,7 @@ a365 cal list                     # Upcoming meetings
 a365 copilot chat "Summarize my week"   # Ask Copilot
 a365 me whoami                    # Your profile
 a365 odr ls                      # OneDrive files
-a365 websearch search "MCP protocol"    # Web search
+a365 websearch search "MCP protocol" https://modelcontextprotocol.io  # Web search
 ```
 
 ## Installation

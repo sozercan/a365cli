@@ -6,14 +6,14 @@ Search the web from the command line.
 
 | Command | Description | Key Arguments |
 |---------|-------------|---------------|
-| `websearch search` | Search the web | `<query>` `--urls` |
+| `websearch search` | Search the web | `<query>` `<urls...>` |
 
 ## Examples
 
 ```bash
 # Search the web for a topic
-a365 websearch search "Microsoft 365 Copilot release notes"
+a365 websearch search "Microsoft 365 Copilot release notes" https://learn.microsoft.com
 
-# Search with specific URLs to focus on
-a365 websearch search "deployment guide" --urls https://learn.microsoft.com --urls https://docs.microsoft.com
+# Search across multiple URLs
+a365 websearch search "deployment guide" https://learn.microsoft.com https://docs.microsoft.com
 ```
