@@ -56,10 +56,6 @@ go install github.com/sozercan/a365cli@latest
 
 a365 uses Entra ID interactive browser authentication with PKCE. On first run it opens your browser; after that, tokens refresh silently.
 
-On macOS and Linux builds with CGO enabled, refresh tokens are stored in the OS
-credential store. When CGO is disabled or the platform cache is unavailable,
-the CLI falls back gracefully, but you may need to reauthenticate more often.
-
 A built-in client ID is provided by default. If your tenant requires a custom app registration, set your own via `--client-id` or `A365_CLIENT_ID`.
 
 ```bash
