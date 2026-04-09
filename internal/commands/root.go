@@ -43,6 +43,15 @@ func (c *Context) NewMCPClient(endpoint string) *mcp.Client {
 // If no cached auth record exists (e.g., after logout), it performs a full
 // interactive login to re-establish credentials.
 func (c *Context) EnsureAuth() error {
+	if c.TokenProvider != nil {
+		return nil
+	}
+
+	hasCachedAuth := auth.HasCachedAuth()
+	if !hasCachedAuth && (c.NoInput || !isTerminal()) {
+		return fmt.Errorf("authentication required — run 'a365 auth login' first (non-interactive)")
+	}
+
 	cred, err := auth.NewCredential(c.ClientID, c.TenantID)
 	if err != nil {
 		return fmt.Errorf("authentication required — run 'a365 auth login' first: %w", err)
@@ -50,8 +59,8 @@ func (c *Context) EnsureAuth() error {
 
 	// If there's no cached auth record, perform interactive login so the
 	// auth record (including username) is saved for this and future runs.
-	if !auth.HasCachedAuth() {
-		fmt.Println("Opening browser for authentication...")
+	if !hasCachedAuth {
+		fmt.Fprintln(os.Stderr, "Opening browser for authentication...")
 		if _, err := cred.Authenticate(c.Ctx); err != nil {
 			return fmt.Errorf("authentication required — run 'a365 auth login' first: %w", err)
 		}

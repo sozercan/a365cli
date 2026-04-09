@@ -20,7 +20,10 @@ make lint       # Format + vet
 make clean      # Remove build artifacts
 ```
 
-The Makefile handles build configuration automatically.
+The default native build uses CGO on macOS and Linux so the CLI can persist
+refresh tokens in the OS credential store. Use `CGO_ENABLED=0 make build` if
+you need a pure-Go build; auth still works, but token persistence falls back to
+the non-CGO path.
 
 ## Adding a New Service
 

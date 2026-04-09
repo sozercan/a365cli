@@ -14,11 +14,12 @@ import (
 )
 
 func TestParseSSE_ToolCall(t *testing.T) {
+	requestID := 2
 	sseData := `event: message
 data: {"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"{\"chats\":[{\"id\":\"1\"}]}"}]}}
 
 `
-	resp, err := parseSSE(strings.NewReader(sseData))
+	resp, err := parseSSE(strings.NewReader(sseData), &requestID)
 	if err != nil {
 		t.Fatalf("parseSSE failed: %v", err)
 	}
@@ -43,11 +44,12 @@ data: {"jsonrpc":"2.0","id":2,"result":{"content":[{"type":"text","text":"{\"cha
 }
 
 func TestParseSSE_ToolsList(t *testing.T) {
+	requestID := 1
 	sseData := `event: message
 data: {"jsonrpc":"2.0","id":1,"result":{"tools":[{"name":"ListChats","description":"List recent chats"},{"name":"GetChat","description":"Get chat"}]}}
 
 `
-	resp, err := parseSSE(strings.NewReader(sseData))
+	resp, err := parseSSE(strings.NewReader(sseData), &requestID)
 	if err != nil {
 		t.Fatalf("parseSSE failed: %v", err)
 	}
@@ -60,11 +62,12 @@ data: {"jsonrpc":"2.0","id":1,"result":{"tools":[{"name":"ListChats","descriptio
 }
 
 func TestParseSSE_Error(t *testing.T) {
+	requestID := 1
 	sseData := `event: message
 data: {"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Invalid Request"}}
 
 `
-	resp, err := parseSSE(strings.NewReader(sseData))
+	resp, err := parseSSE(strings.NewReader(sseData), &requestID)
 	if err != nil {
 		t.Fatalf("parseSSE failed: %v", err)
 	}
@@ -80,9 +83,10 @@ data: {"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"Invalid Request"
 }
 
 func TestParseSSE_NoTrailingNewline(t *testing.T) {
+	requestID := 1
 	// Some servers may close the stream without a trailing blank line
 	sseData := `data: {"jsonrpc":"2.0","id":1,"result":{"content":[{"type":"text","text":"hello"}]}}`
-	resp, err := parseSSE(strings.NewReader(sseData))
+	resp, err := parseSSE(strings.NewReader(sseData), &requestID)
 	if err != nil {
 		t.Fatalf("parseSSE failed: %v", err)
 	}
@@ -95,9 +99,10 @@ func TestParseSSE_NoTrailingNewline(t *testing.T) {
 }
 
 func TestParseSSE_DataWithoutSpace(t *testing.T) {
+	requestID := 1
 	// SSE spec: "data:" without trailing space is valid, value starts at next char
 	sseData := "data:{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"no-space\"}]}}\n\n"
-	resp, err := parseSSE(strings.NewReader(sseData))
+	resp, err := parseSSE(strings.NewReader(sseData), &requestID)
 	if err != nil {
 		t.Fatalf("parseSSE failed: %v", err)
 	}
@@ -110,9 +115,49 @@ func TestParseSSE_DataWithoutSpace(t *testing.T) {
 }
 
 func TestParseSSE_EmptyStream(t *testing.T) {
-	_, err := parseSSE(strings.NewReader(""))
+	requestID := 1
+	_, err := parseSSE(strings.NewReader(""), &requestID)
 	if err == nil {
 		t.Fatal("expected error for empty stream")
+	}
+}
+
+func TestParseSSE_SkipsNotificationsUntilMatchingResponse(t *testing.T) {
+	requestID := 7
+	sseData := `event: message
+data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"message":"working"}}
+
+event: message
+data: {"jsonrpc":"2.0","id":7,"result":{"content":[{"type":"text","text":"done"}]}}
+
+`
+	resp, err := parseSSE(strings.NewReader(sseData), &requestID)
+	if err != nil {
+		t.Fatalf("parseSSE failed: %v", err)
+	}
+	if resp == nil || resp.Result == nil {
+		t.Fatal("expected response result")
+	}
+	if got := resp.Result.Content[0].Text; got != "done" {
+		t.Fatalf("expected final response text %q, got %q", "done", got)
+	}
+}
+
+func TestParseSSE_MatchesRequestIDZero(t *testing.T) {
+	requestID := 0
+	sseData := `event: message
+data: {"jsonrpc":"2.0","id":1,"result":{"content":[{"type":"text","text":"wrong"}]}}
+
+event: message
+data: {"jsonrpc":"2.0","id":0,"result":{"content":[{"type":"text","text":"right"}]}}
+
+`
+	resp, err := parseSSE(strings.NewReader(sseData), &requestID)
+	if err != nil {
+		t.Fatalf("parseSSE failed: %v", err)
+	}
+	if got := resp.Result.Content[0].Text; got != "right" {
+		t.Fatalf("expected response for id 0, got %q", got)
 	}
 }
 
@@ -238,6 +283,17 @@ func TestClient_HTTPError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "401") {
 		t.Errorf("expected error to contain '401', got: %s", err.Error())
+	}
+}
+
+func TestClient_CallToolWithoutTokenProvider(t *testing.T) {
+	client := NewClient("https://example.com/mcp/", nil)
+	_, err := client.CallTool(context.Background(), "ListChats", nil)
+	if err == nil {
+		t.Fatal("expected error when token provider is not configured")
+	}
+	if !strings.Contains(err.Error(), "token provider not configured") {
+		t.Fatalf("expected token-provider error, got %v", err)
 	}
 }
 

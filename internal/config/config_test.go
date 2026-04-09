@@ -1,18 +1,9 @@
 package config
 
-import (
-	"os"
-	"testing"
-)
+import "testing"
 
 func TestBaseURL_Default(t *testing.T) {
-	orig := os.Getenv("A365_ENDPOINT")
-	os.Unsetenv("A365_ENDPOINT")
-	defer func() {
-		if orig != "" {
-			os.Setenv("A365_ENDPOINT", orig)
-		}
-	}()
+	t.Setenv("A365_ENDPOINT", "")
 
 	got := BaseURL()
 	if got != DefaultBaseURL {
@@ -21,15 +12,7 @@ func TestBaseURL_Default(t *testing.T) {
 }
 
 func TestBaseURL_Override(t *testing.T) {
-	orig := os.Getenv("A365_ENDPOINT")
-	os.Setenv("A365_ENDPOINT", "https://custom.example.com/")
-	defer func() {
-		if orig == "" {
-			os.Unsetenv("A365_ENDPOINT")
-		} else {
-			os.Setenv("A365_ENDPOINT", orig)
-		}
-	}()
+	t.Setenv("A365_ENDPOINT", "https://custom.example.com/")
 
 	got := BaseURL()
 	want := "https://custom.example.com/"
@@ -39,13 +22,7 @@ func TestBaseURL_Override(t *testing.T) {
 }
 
 func TestEndpoint(t *testing.T) {
-	orig := os.Getenv("A365_ENDPOINT")
-	os.Unsetenv("A365_ENDPOINT")
-	defer func() {
-		if orig != "" {
-			os.Setenv("A365_ENDPOINT", orig)
-		}
-	}()
+	t.Setenv("A365_ENDPOINT", "")
 
 	tests := []struct {
 		service string
@@ -73,6 +50,29 @@ func TestEndpoint_Unknown(t *testing.T) {
 	got := Endpoint("nonexistent-service")
 	if got != "" {
 		t.Errorf("Endpoint('nonexistent-service') = %q, want empty string", got)
+	}
+}
+
+func TestValidateEndpointURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     string
+		wantErr bool
+	}{
+		{name: "empty", raw: "", wantErr: false},
+		{name: "https", raw: "https://example.com/agents/servers/", wantErr: false},
+		{name: "localhost http", raw: "http://127.0.0.1:8080/", wantErr: false},
+		{name: "non-loopback http", raw: "http://example.com/agents/servers/", wantErr: true},
+		{name: "relative", raw: "/agents/servers/", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateEndpointURL(tt.raw)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ValidateEndpointURL(%q) error = %v, wantErr %v", tt.raw, err, tt.wantErr)
+			}
+		})
 	}
 }
 

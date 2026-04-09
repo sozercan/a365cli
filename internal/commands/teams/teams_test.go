@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -37,8 +37,8 @@ func setupTestServerWithSchemas(t *testing.T, toolResponses map[string]string, t
 		}
 
 		var req struct {
-			ID     int    `json:"id"`
-			Method string `json:"method"`
+			ID     int             `json:"id"`
+			Method string          `json:"method"`
 			Params json.RawMessage `json:"params"`
 		}
 		if err := json.Unmarshal(body, &req); err != nil {
@@ -106,8 +106,7 @@ func setupTestServerWithSchemas(t *testing.T, toolResponses map[string]string, t
 		}
 	}))
 
-	origEndpoint := os.Getenv("A365_ENDPOINT")
-	os.Setenv("A365_ENDPOINT", server.URL+"/")
+	t.Setenv("A365_ENDPOINT", server.URL+"/")
 
 	var buf bytes.Buffer
 	ctx := &commands.Context{
@@ -121,11 +120,6 @@ func setupTestServerWithSchemas(t *testing.T, toolResponses map[string]string, t
 
 	cleanup := func() {
 		server.Close()
-		if origEndpoint == "" {
-			os.Unsetenv("A365_ENDPOINT")
-		} else {
-			os.Setenv("A365_ENDPOINT", origEndpoint)
-		}
 	}
 
 	return ctx, &buf, cleanup
@@ -499,5 +493,6 @@ func keys(m map[string]any) []string {
 	for k := range m {
 		ks = append(ks, k)
 	}
+	slices.Sort(ks)
 	return ks
 }

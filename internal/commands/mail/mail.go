@@ -200,7 +200,7 @@ func (c *MailReplyCmd) Run(ctx *commands.Context) error {
 		return ctx.ValidateDryRun(mailEndpoint(), "ReplyToMessage",
 			fmt.Sprintf("reply to message %s", c.ID),
 			map[string]any{"action": "mail.reply", "id": c.ID, "comment_len": len(c.Comment)},
-			map[string]any{"id": c.ID, "comment": c.Comment, "sendImmediately": true},
+			map[string]any{"id": c.ID, "comment": c.Comment, "sendImmediately": c.Send},
 		)
 	}
 
@@ -222,7 +222,11 @@ func (c *MailReplyCmd) Run(ctx *commands.Context) error {
 	if err != nil {
 		return err
 	}
-	return ctx.Output.PrintMutation("Reply sent", data)
+	msg := "Reply sent"
+	if !c.Send {
+		msg = "Reply draft created"
+	}
+	return ctx.Output.PrintMutation(msg, data)
 }
 
 // MailReplyAllCmd replies all to an email.
@@ -237,7 +241,7 @@ func (c *MailReplyAllCmd) Run(ctx *commands.Context) error {
 		return ctx.ValidateDryRun(mailEndpoint(), "ReplyAllToMessage",
 			fmt.Sprintf("reply-all to message %s", c.ID),
 			map[string]any{"action": "mail.reply-all", "id": c.ID},
-			map[string]any{"id": c.ID, "comment": c.Comment, "sendImmediately": true},
+			map[string]any{"id": c.ID, "comment": c.Comment, "sendImmediately": c.Send},
 		)
 	}
 
@@ -259,7 +263,11 @@ func (c *MailReplyAllCmd) Run(ctx *commands.Context) error {
 	if err != nil {
 		return err
 	}
-	return ctx.Output.PrintMutation("Reply-all sent", data)
+	msg := "Reply-all sent"
+	if !c.Send {
+		msg = "Reply-all draft created"
+	}
+	return ctx.Output.PrintMutation(msg, data)
 }
 
 // MailForwardCmd forwards an email.
@@ -565,9 +573,18 @@ type MailUploadCmd struct {
 
 func (c *MailUploadCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
-		return ctx.ValidateDryRun(mailEndpoint(), "UploadAttachment",
+		toolName := "UploadAttachment"
+		if c.Large {
+			toolName = "UploadLargeAttachment"
+		}
+		return ctx.ValidateDryRun(mailEndpoint(), toolName,
 			fmt.Sprintf("upload attachment %q to message %s", c.FileName, c.MessageID),
 			map[string]any{"action": "mail.upload-attachment", "messageId": c.MessageID, "fileName": c.FileName},
+			map[string]any{
+				"messageId":     c.MessageID,
+				"fileName":      c.FileName,
+				"contentBase64": c.ContentBase64,
+			},
 		)
 	}
 

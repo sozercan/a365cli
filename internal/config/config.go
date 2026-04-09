@@ -1,6 +1,9 @@
 package config
 
 import (
+	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -30,31 +33,31 @@ const (
 
 // Servers maps friendly names to agent365 MCP server names.
 var Servers = map[string]string{
-	"teams":            "mcp_TeamsServer",
-	"mail":             "mcp_MailTools",
-	"calendar":         "mcp_CalendarTools",
-	"planner":          "mcp_PlannerServer",
-	"sharepoint":       "mcp_ODSPRemoteServer",
-	"word":             "mcp_WordServer",
-	"excel":            "mcp_ExcelServer",
-	"powerpoint":       "mcp_PowerPointServer",
-	"onedrive":         "mcp_OneDriveServer",
-	"copilot":          "mcp_M365Copilot",
-	"me":               "mcp_MeServer",
-	"files":            "mcp_FilesServer",
-	"knowledge":        "mcp_KnowledgeTools",
-	"sp-lists":         "mcp_SharePointListsTools",
-	"dataverse":        "mcp_DataverseServer",
-	"admin":            "mcp_Admin365_GraphTools",
-	"nlweb":            "mcp_NLWeb",
+	"teams":      "mcp_TeamsServer",
+	"mail":       "mcp_MailTools",
+	"calendar":   "mcp_CalendarTools",
+	"planner":    "mcp_PlannerServer",
+	"sharepoint": "mcp_ODSPRemoteServer",
+	"word":       "mcp_WordServer",
+	"excel":      "mcp_ExcelServer",
+	"powerpoint": "mcp_PowerPointServer",
+	"onedrive":   "mcp_OneDriveServer",
+	"copilot":    "mcp_M365Copilot",
+	"me":         "mcp_MeServer",
+	"files":      "mcp_FilesServer",
+	"knowledge":  "mcp_KnowledgeTools",
+	"sp-lists":   "mcp_SharePointListsTools",
+	"dataverse":  "mcp_DataverseServer",
+	"admin":      "mcp_Admin365_GraphTools",
+	"nlweb":      "mcp_NLWeb",
 	// Discovered via discoverToolServers
-	"websearch":        "mcp_WebSearchTools",
-	"w365":             "mcp_W365ComputerUse",
-	"dasearch":         "mcp_DASearch",
-	"tasks":            "mcp_TaskPersonalizationServer",
-	"admin365":         "mcp_AdminTools",
-	"onedrive-remote":  "mcp_OneDriveRemoteServer",
-	"sp-remote":        "mcp_SharePointRemoteServer",
+	"websearch":       "mcp_WebSearchTools",
+	"w365":            "mcp_W365ComputerUse",
+	"dasearch":        "mcp_DASearch",
+	"tasks":           "mcp_TaskPersonalizationServer",
+	"admin365":        "mcp_AdminTools",
+	"onedrive-remote": "mcp_OneDriveRemoteServer",
+	"sp-remote":       "mcp_SharePointRemoteServer",
 }
 
 // BaseURL returns the agent365 base URL, allowing override via A365_ENDPOINT env var.
@@ -68,6 +71,39 @@ func BaseURL() string {
 		base += "/"
 	}
 	return base
+}
+
+// ValidateEndpointURL rejects malformed endpoints and non-loopback plaintext HTTP.
+func ValidateEndpointURL(raw string) error {
+	if raw == "" {
+		return nil
+	}
+
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("parse endpoint URL: %w", err)
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return fmt.Errorf("endpoint must be an absolute URL")
+	}
+	if u.Scheme == "https" {
+		return nil
+	}
+	if u.Scheme != "http" {
+		return fmt.Errorf("endpoint must use https or loopback http")
+	}
+	if !isLoopbackHost(u.Hostname()) {
+		return fmt.Errorf("non-loopback endpoints must use https")
+	}
+	return nil
+}
+
+func isLoopbackHost(host string) bool {
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // Endpoint returns the full URL for a given service name.

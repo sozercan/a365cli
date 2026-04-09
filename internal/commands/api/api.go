@@ -24,6 +24,12 @@ type APIServersCmd struct {
 }
 
 func (c *APIServersCmd) Run(ctx *commands.Context) error {
+	if c.Probe {
+		if err := ctx.EnsureAuth(); err != nil {
+			return err
+		}
+	}
+
 	servers := config.Servers
 	names := make([]string, 0, len(servers))
 	for name := range servers {

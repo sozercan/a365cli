@@ -117,3 +117,74 @@ func TestMailDeleteCmd_NoInput(t *testing.T) {
 		t.Errorf("expected error about --force, got: %v", err)
 	}
 }
+
+func TestMailReplyCmd_DryRunUsesSendFlag(t *testing.T) {
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "ReplyToMessage",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"id":              map[string]any{"type": "string"},
+					"comment":         map[string]any{"type": "string"},
+					"sendImmediately": map[string]any{"type": "boolean"},
+				},
+				"required": []any{"id", "comment", "sendImmediately"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
+	ctx.DryRun = true
+
+	cmd := &MailReplyCmd{ID: "msg-001", Comment: "Thanks", Send: false}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok || val["valid"] != true {
+		t.Fatalf("expected valid dry-run output, got %v", result["validation"])
+	}
+}
+
+func TestMailUploadCmd_LargeDryRunUsesLargeToolSchema(t *testing.T) {
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "UploadLargeAttachment",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"messageId":     map[string]any{"type": "string"},
+					"fileName":      map[string]any{"type": "string"},
+					"contentBase64": map[string]any{"type": "string"},
+				},
+				"required": []any{"messageId", "fileName", "contentBase64"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
+	ctx.DryRun = true
+
+	cmd := &MailUploadCmd{
+		MessageID:     "msg-001",
+		FileName:      "report.txt",
+		ContentBase64: "aGVsbG8=",
+		Large:         true,
+	}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok || val["valid"] != true {
+		t.Fatalf("expected valid dry-run output, got %v", result["validation"])
+	}
+}

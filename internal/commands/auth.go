@@ -5,11 +5,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
 	"github.com/sozercan/a365cli/internal/auth"
 	"github.com/sozercan/a365cli/internal/mcp"
+	"github.com/sozercan/a365cli/internal/output"
 )
 
 // AuthCmd groups authentication subcommands.
@@ -24,7 +26,10 @@ type AuthCmd struct {
 type AuthLoginCmd struct{}
 
 func (c *AuthLoginCmd) Run(ctx *Context) error {
-	fmt.Println("Opening browser for authentication...")
+	if ctx.NoInput || !isTerminal() {
+		return fmt.Errorf("login requires interactive input")
+	}
+	fmt.Fprintln(ctx.Output.Writer, "Opening browser for authentication...")
 
 	cred, err := auth.NewCredential(ctx.ClientID, ctx.TenantID)
 	if err != nil {
@@ -38,11 +43,11 @@ func (c *AuthLoginCmd) Run(ctx *Context) error {
 
 	username := auth.GetCachedUsername()
 	if username != "" {
-		fmt.Printf("Authenticated as %s\n", username)
+		fmt.Fprintf(ctx.Output.Writer, "Authenticated as %s\n", username)
 	} else {
-		fmt.Println("Authenticated successfully")
+		fmt.Fprintln(ctx.Output.Writer, "Authenticated successfully")
 	}
-	fmt.Printf("Token expires: %s\n", token.ExpiresOn.Local().Format("2006-01-02 15:04:05"))
+	fmt.Fprintf(ctx.Output.Writer, "Token expires: %s\n", token.ExpiresOn.Local().Format("2006-01-02 15:04:05"))
 
 	return nil
 }
@@ -52,15 +57,15 @@ type AuthStatusCmd struct{}
 
 func (c *AuthStatusCmd) Run(ctx *Context) error {
 	if !auth.HasCachedAuth() {
-		fmt.Println("Not authenticated. Run 'a365 auth login' to sign in.")
+		fmt.Fprintln(ctx.Output.Writer, "Not authenticated. Run 'a365 auth login' to sign in.")
 		return nil
 	}
 
 	username := auth.GetCachedUsername()
 	if username != "" {
-		fmt.Printf("Authenticated as %s\n", username)
+		fmt.Fprintf(ctx.Output.Writer, "Authenticated as %s\n", username)
 	} else {
-		fmt.Println("Authenticated (cached credentials found)")
+		fmt.Fprintln(ctx.Output.Writer, "Authenticated (cached credentials found)")
 	}
 
 	return nil
@@ -74,7 +79,7 @@ func (c *AuthLogoutCmd) Run(ctx *Context) error {
 		return fmt.Errorf("logout: %w", err)
 	}
 	mcp.ClearSessions()
-	fmt.Println("Logged out successfully. Cached credentials removed.")
+	fmt.Fprintln(ctx.Output.Writer, "Logged out successfully. Cached credentials removed.")
 	return nil
 }
 
@@ -116,35 +121,34 @@ func (c *AuthTokenCmd) Run(ctx *Context) error {
 		return fmt.Errorf("parse token claims: %w", err)
 	}
 
-	// Print key claims in human-readable format
-	fmt.Printf("App ID:    %v\n", claims["appid"])
-	fmt.Printf("Tenant:    %v\n", claims["tid"])
-	fmt.Printf("User:      %v\n", claims["upn"])
-	fmt.Printf("Name:      %v\n", claims["name"])
-	fmt.Printf("Audience:  %v\n", claims["aud"])
-
-	// Scopes
-	if scp, ok := claims["scp"]; ok {
-		fmt.Printf("Scopes:    %v\n", scp)
-	} else {
-		fmt.Println("Scopes:    (none — check app registration)")
+	if ctx.Output.Format == output.FormatJSON {
+		return ctx.Output.PrintItem(claims)
 	}
 
-	// Expiry
+	printTokenClaims(ctx.Output.Writer, claims)
+	return nil
+}
+
+func printTokenClaims(w io.Writer, claims map[string]any) {
+	fmt.Fprintf(w, "App ID:    %v\n", claims["appid"])
+	fmt.Fprintf(w, "Tenant:    %v\n", claims["tid"])
+	fmt.Fprintf(w, "User:      %v\n", claims["upn"])
+	fmt.Fprintf(w, "Name:      %v\n", claims["name"])
+	fmt.Fprintf(w, "Audience:  %v\n", claims["aud"])
+
+	if scp, ok := claims["scp"]; ok {
+		fmt.Fprintf(w, "Scopes:    %v\n", scp)
+	} else {
+		fmt.Fprintln(w, "Scopes:    (none - check app registration)")
+	}
+
 	if exp, ok := claims["exp"].(float64); ok {
 		expTime := time.Unix(int64(exp), 0)
 		remaining := time.Until(expTime)
 		if remaining > 0 {
-			fmt.Printf("Expires:   %s (in %s)\n", expTime.Local().Format("2006-01-02 15:04:05"), remaining.Round(time.Second))
+			fmt.Fprintf(w, "Expires:   %s (in %s)\n", expTime.Local().Format("2006-01-02 15:04:05"), remaining.Round(time.Second))
 		} else {
-			fmt.Printf("Expires:   %s (EXPIRED %s ago)\n", expTime.Local().Format("2006-01-02 15:04:05"), (-remaining).Round(time.Second))
+			fmt.Fprintf(w, "Expires:   %s (EXPIRED %s ago)\n", expTime.Local().Format("2006-01-02 15:04:05"), (-remaining).Round(time.Second))
 		}
 	}
-
-	// Full claims in JSON if --json output
-	if ctx.Output.Format == 1 { // FormatJSON
-		return ctx.Output.PrintItem(claims)
-	}
-
-	return nil
 }

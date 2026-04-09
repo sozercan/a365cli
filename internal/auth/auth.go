@@ -36,8 +36,10 @@ func NewCredential(clientID, tenantID string) (*Credential, error) {
 		opts.AuthenticationRecord = *record
 	}
 
-	// Enable persistent token cache so tokens (including refresh tokens)
-	// survive between CLI invocations via the auth record file.
+	// Enable persistent token cache so refresh tokens survive between CLI
+	// invocations when the platform credential store is available.
+	applyTokenCache(opts)
+
 	cred, err := azidentity.NewInteractiveBrowserCredential(opts)
 	if err != nil {
 		return nil, fmt.Errorf("create credential: %w", err)

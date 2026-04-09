@@ -5,11 +5,14 @@ LDFLAGS := -ldflags "-X github.com/sozercan/a365cli/internal/version.Version=$(V
 
 .PHONY: build install test clean lint fmt vet
 
-## build: Build the a365 binary (CGO disabled to avoid macOS Keychain prompts)
+## build: Build the a365 binary (set CGO_ENABLED=0 to disable OS-backed token cache)
 build:
-	CGO_ENABLED=0 go build $(LDFLAGS) -o $(BINARY) .
+	go build $(LDFLAGS) -o $(BINARY) .
+ifeq ($(shell uname),Darwin)
+	@codesign --sign - --force $(BINARY) 2>/dev/null || true
+endif
 
-## install: Install a365 to $GOPATH/bin
+## install: Install a365 to $GOPATH/bin (set CGO_ENABLED=0 to disable OS-backed token cache)
 install:
 	go install $(LDFLAGS) .
 

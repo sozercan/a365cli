@@ -56,6 +56,11 @@ make build
 
 Requires Go 1.26+.
 
+On macOS and Linux, the default build uses CGO so refresh tokens can persist in
+the OS credential store. Use `CGO_ENABLED=0 make build` if you need a pure-Go
+build; authentication still works, but tokens will not persist across CLI
+invocations.
+
 ### go install
 
 ```bash
@@ -65,6 +70,10 @@ go install github.com/sozercan/a365cli@latest
 ## Authentication
 
 a365 uses Entra ID interactive browser authentication with PKCE. On first run it opens your browser; after that, tokens refresh silently.
+
+On macOS and Linux builds with CGO enabled, refresh tokens are stored in the OS
+credential store. When CGO is disabled or the platform cache is unavailable,
+the CLI falls back gracefully, but you may need to reauthenticate more often.
 
 A built-in client ID is provided by default. If your tenant requires a custom app registration, set your own via `--client-id` or `A365_CLIENT_ID`.
 
