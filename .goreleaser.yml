@@ -47,16 +47,19 @@ changelog:
       - "^test:"
       - "^ci:"
 
-homebrew_casks:
-  - name: a365
-    repository:
+brews:
+  - repository:
       owner: sozercan
       name: homebrew-repo
       token: "{{ .Env.HOMEBREW_REPO_TOKEN }}"
+    directory: Formula
     homepage: "https://github.com/sozercan/a365cli"
     description: "CLI for Microsoft 365 via agent365 MCP servers"
-    binaries:
-      - a365
+    license: "MIT"
+    install: |
+      bin.install "a365"
+    test: |
+      system "#{bin}/a365", "--version"
 
 release:
   github:
