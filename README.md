@@ -46,22 +46,6 @@ brew install a365
 
 Pre-built binaries for Linux, macOS, and Windows are available on the [Releases](https://github.com/sozercan/a365cli/releases) page.
 
-### From Source
-
-```bash
-git clone https://github.com/sozercan/a365cli.git
-cd a365cli
-make build        # recommended: OS-backed token cache on macOS/Linux
-make build-static # optional: pure-Go build, no persistent token cache
-```
-
-Requires Go 1.26+.
-
-On macOS and Linux, `make build` uses the native cache integration so refresh
-tokens can persist in the OS credential store. Use `make build-static` if you
-need a pure-Go build; authentication still works, but tokens will not persist
-across CLI invocations.
-
 ### go install
 
 ```bash
