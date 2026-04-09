@@ -125,6 +125,33 @@ func TestClearSessions_NoFile(t *testing.T) {
 	ClearSessions()
 }
 
+func TestClearSession_OnlyRemovesTargetEndpoint(t *testing.T) {
+	withTempHome(t)
+
+	endpoint1 := "https://example.com/mcp/server1/"
+	endpoint2 := "https://example.com/mcp/server2/"
+
+	SaveSession(endpoint1, "sess-1")
+	SaveSession(endpoint2, "sess-2")
+	SaveTools(endpoint1, []ToolInfo{{Name: "Tool1"}})
+	SaveTools(endpoint2, []ToolInfo{{Name: "Tool2"}})
+
+	ClearSession(endpoint1)
+
+	if _, ok := LoadSession(endpoint1); ok {
+		t.Fatal("expected endpoint1 session to be cleared")
+	}
+	if _, ok := LoadSession(endpoint2); !ok {
+		t.Fatal("expected endpoint2 session to remain")
+	}
+	if tools := LoadTools(endpoint1); tools != nil {
+		t.Fatal("expected endpoint1 tools to be cleared")
+	}
+	if tools := LoadTools(endpoint2); len(tools) != 1 || tools[0].Name != "Tool2" {
+		t.Fatalf("expected endpoint2 tools to remain, got %+v", tools)
+	}
+}
+
 func TestSaveSession_CorruptFile(t *testing.T) {
 	home := withTempHome(t)
 

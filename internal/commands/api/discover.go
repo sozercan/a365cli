@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
@@ -17,11 +18,18 @@ import (
 type APIDiscoverCmd struct{}
 
 func (c *APIDiscoverCmd) Run(ctx *commands.Context) error {
-	// The discover endpoint is at the agents root, not under /servers/
+	if err := ctx.EnsureAuth(); err != nil {
+		return err
+	}
+
 	baseURL := config.BaseURL()
-	// Strip trailing "servers/" to get the agents root
-	agentsRoot := strings.TrimSuffix(baseURL, "servers/")
-	discoverURL := agentsRoot + "discoverToolServers"
+	discoverURL, err := discoverURL(baseURL)
+	if err != nil {
+		return err
+	}
+	if err := config.ValidateEndpointURL(discoverURL); err != nil {
+		return fmt.Errorf("invalid discover endpoint %q: %w", discoverURL, err)
+	}
 
 	// Get bearer token
 	token, err := ctx.TokenProvider(ctx.Ctx)
@@ -37,7 +45,8 @@ func (c *APIDiscoverCmd) Run(ctx *commands.Context) error {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", fmt.Sprintf("a365/%s (Go)", version.Version))
 
-	resp, err := http.DefaultClient.Do(req)
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("discover: %w", err)
 	}
@@ -90,6 +99,21 @@ func (c *APIDiscoverCmd) Run(ctx *commands.Context) error {
 	}
 
 	return ctx.Output.PrintList("servers", output.APIDiscoverColumns, rows)
+}
+
+func discoverURL(baseURL string) (string, error) {
+	switch {
+	case strings.HasSuffix(baseURL, "servers/"):
+		return strings.TrimSuffix(baseURL, "servers/") + "discoverToolServers", nil
+	case strings.HasSuffix(baseURL, "servers"):
+		return strings.TrimSuffix(baseURL, "servers") + "discoverToolServers", nil
+	case strings.HasSuffix(baseURL, "agents/"):
+		return baseURL + "discoverToolServers", nil
+	case strings.HasSuffix(baseURL, "agents"):
+		return baseURL + "/discoverToolServers", nil
+	default:
+		return "", fmt.Errorf("discover requires an agent365 gateway base URL ending in /agents/ or /agents/servers/")
+	}
 }
 
 // getString returns the first non-empty value from the map for the given keys.

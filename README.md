@@ -46,16 +46,6 @@ brew install a365
 
 Pre-built binaries for Linux, macOS, and Windows are available on the [Releases](https://github.com/sozercan/a365cli/releases) page.
 
-### From Source
-
-```bash
-git clone https://github.com/sozercan/a365cli.git
-cd a365cli
-make build
-```
-
-Requires Go 1.26+.
-
 ### go install
 
 ```bash

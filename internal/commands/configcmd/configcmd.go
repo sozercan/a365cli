@@ -5,6 +5,7 @@ import (
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
+	"github.com/sozercan/a365cli/internal/output"
 )
 
 // ConfigCmd groups config subcommands.
@@ -19,10 +20,18 @@ type ConfigShowCmd struct{}
 
 func (c *ConfigShowCmd) Run(ctx *commands.Context) error {
 	cfg := config.LoadFileConfig()
-	fmt.Printf("client-id: %s\n", valueOrUnset(cfg.ClientID))
-	fmt.Printf("tenant-id: %s\n", valueOrUnset(cfg.TenantID))
-	fmt.Printf("output:    %s\n", valueOrUnset(cfg.Output))
-	fmt.Printf("endpoint:  %s\n", valueOrUnset(cfg.Endpoint))
+	if ctx.Output.Format == output.FormatJSON {
+		return ctx.Output.PrintItem(map[string]any{
+			"client-id": cfg.ClientID,
+			"tenant-id": cfg.TenantID,
+			"output":    cfg.Output,
+			"endpoint":  cfg.Endpoint,
+		})
+	}
+	fmt.Fprintf(ctx.Output.Writer, "client-id: %s\n", valueOrUnset(cfg.ClientID))
+	fmt.Fprintf(ctx.Output.Writer, "tenant-id: %s\n", valueOrUnset(cfg.TenantID))
+	fmt.Fprintf(ctx.Output.Writer, "output:    %s\n", valueOrUnset(cfg.Output))
+	fmt.Fprintf(ctx.Output.Writer, "endpoint:  %s\n", valueOrUnset(cfg.Endpoint))
 	return nil
 }
 
@@ -57,6 +66,9 @@ func (c *ConfigSetCmd) Run(ctx *commands.Context) error {
 			cfg.Output = c.Value
 		}
 	case "endpoint":
+		if err := config.ValidateEndpointURL(c.Value); err != nil {
+			return fmt.Errorf("invalid endpoint %q: %w", c.Value, err)
+		}
 		cfg.Endpoint = c.Value
 	default:
 		return fmt.Errorf("unknown config key %q (valid: client-id, tenant-id, output, endpoint)", c.Key)
@@ -65,7 +77,10 @@ func (c *ConfigSetCmd) Run(ctx *commands.Context) error {
 	if err := config.SaveFileConfig(cfg); err != nil {
 		return fmt.Errorf("save config: %w", err)
 	}
-	fmt.Printf("Set %s = %s\n", c.Key, c.Value)
+	if ctx.Output.Format == output.FormatJSON {
+		return ctx.Output.PrintItem(map[string]any{"key": c.Key, "value": c.Value})
+	}
+	fmt.Fprintf(ctx.Output.Writer, "Set %s = %s\n", c.Key, c.Value)
 	return nil
 }
 
@@ -77,7 +92,10 @@ func (c *ConfigPathCmd) Run(ctx *commands.Context) error {
 	if p == "" {
 		return fmt.Errorf("could not determine config path")
 	}
-	fmt.Println(p)
+	if ctx.Output.Format == output.FormatJSON {
+		return ctx.Output.PrintItem(map[string]any{"path": p})
+	}
+	fmt.Fprintln(ctx.Output.Writer, p)
 	return nil
 }
 

@@ -62,7 +62,7 @@ func LoadAuthRecord() (*azidentity.AuthenticationRecord, error) {
 	return &record, nil
 }
 
-// RemoveAuthRecord deletes the cached auth record and keychain entries.
+// RemoveAuthRecord deletes the cached auth record and persistent token cache.
 func RemoveAuthRecord() error {
 	path, err := authRecordPath()
 	if err != nil {
@@ -72,6 +72,10 @@ func RemoveAuthRecord() error {
 	// Remove auth record file
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove auth record: %w", err)
+	}
+
+	if err := clearTokenCache(); err != nil {
+		return fmt.Errorf("remove token cache: %w", err)
 	}
 
 	return nil

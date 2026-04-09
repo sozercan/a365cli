@@ -35,24 +35,24 @@ import (
 // CLI is the top-level command structure.
 type CLI struct {
 	// Services
-	Teams      teams.TeamsCmd            `cmd:"" help:"Microsoft Teams"`
-	Mail       mail.MailCmd              `cmd:"" help:"Microsoft Mail" aliases:"email"`
-	Calendar   calendar.CalendarCmd      `cmd:"" help:"Microsoft Calendar" aliases:"cal"`
-	Planner    planner.PlannerCmd        `cmd:"" help:"Microsoft Planner"`
-	SharePoint sharepoint.SharePointCmd  `cmd:"" help:"SharePoint files and sites" name:"sharepoint" aliases:"sp"`
-	SPLists    splists.SPListsCmd        `cmd:"" help:"SharePoint Lists" name:"sp-lists"`
-	Me         me.MeCmd                  `cmd:"" help:"User profiles and org info"`
-	Copilot    copilot.CopilotCmd        `cmd:"" help:"Microsoft 365 Copilot"`
-	Word       word.WordCmd              `cmd:"" help:"Microsoft Word documents"`
-	Excel      excel.ExcelCmd            `cmd:"" help:"Microsoft Excel workbooks"`
-	Admin      admin.AdminCmd            `cmd:"" help:"M365 tenant administration"`
-	Admin365   admin365.Admin365Cmd      `cmd:"" help:"Admin365 agent and Copilot settings" name:"admin365"`
-	Knowledge  knowledge.KnowledgeCmd    `cmd:"" help:"Federated knowledge sources"`
-	NLWeb      nlweb.NLWebCmd            `cmd:"" help:"NLWeb natural language search" name:"nlweb"`
+	Teams          teams.TeamsCmd                   `cmd:"" help:"Microsoft Teams"`
+	Mail           mail.MailCmd                     `cmd:"" help:"Microsoft Mail" aliases:"email"`
+	Calendar       calendar.CalendarCmd             `cmd:"" help:"Microsoft Calendar" aliases:"cal"`
+	Planner        planner.PlannerCmd               `cmd:"" help:"Microsoft Planner"`
+	SharePoint     sharepoint.SharePointCmd         `cmd:"" help:"SharePoint files and sites" name:"sharepoint" aliases:"sp"`
+	SPLists        splists.SPListsCmd               `cmd:"" help:"SharePoint Lists" name:"sp-lists"`
+	Me             me.MeCmd                         `cmd:"" help:"User profiles and org info"`
+	Copilot        copilot.CopilotCmd               `cmd:"" help:"Microsoft 365 Copilot"`
+	Word           word.WordCmd                     `cmd:"" help:"Microsoft Word documents"`
+	Excel          excel.ExcelCmd                   `cmd:"" help:"Microsoft Excel workbooks"`
+	Admin          admin.AdminCmd                   `cmd:"" help:"M365 tenant administration"`
+	Admin365       admin365.Admin365Cmd             `cmd:"" help:"Admin365 agent and Copilot settings" name:"admin365"`
+	Knowledge      knowledge.KnowledgeCmd           `cmd:"" help:"Federated knowledge sources"`
+	NLWeb          nlweb.NLWebCmd                   `cmd:"" help:"NLWeb natural language search" name:"nlweb"`
 	OneDriveRemote onedriveremote.OneDriveRemoteCmd `cmd:"" help:"Personal OneDrive files" name:"onedrive-remote" aliases:"odr"`
-	WebSearch  websearch.WebSearchCmd    `cmd:"" help:"Web search" name:"websearch"`
-	DASearch   dasearch.DASearchCmd      `cmd:"" help:"Declarative Agent search" name:"dasearch"`
-	Triggers   triggers.TriggersCmd      `cmd:"" help:"Event triggers and automation"`
+	WebSearch      websearch.WebSearchCmd           `cmd:"" help:"Web search" name:"websearch"`
+	DASearch       dasearch.DASearchCmd             `cmd:"" help:"Declarative Agent search" name:"dasearch"`
+	Triggers       triggers.TriggersCmd             `cmd:"" help:"Event triggers and automation"`
 
 	// Auth & utility
 	Auth       commands.AuthCmd       `cmd:"" help:"Authentication"`
@@ -118,7 +118,11 @@ func main() {
 		}
 	}
 	if os.Getenv("A365_ENDPOINT") == "" && fileCfg.Endpoint != "" {
-		os.Setenv("A365_ENDPOINT", fileCfg.Endpoint)
+		if err := config.ValidateEndpointURL(fileCfg.Endpoint); err != nil {
+			output.PrintError("ignoring invalid configured endpoint %q: %v", fileCfg.Endpoint, err)
+		} else {
+			os.Setenv("A365_ENDPOINT", fileCfg.Endpoint)
+		}
 	}
 
 	// Build shared context
@@ -135,13 +139,7 @@ func main() {
 
 	// For non-auth, non-completion, non-config commands, ensure authentication
 	cmd := kongCtx.Command()
-	if cmd != "auth login" &&
-		cmd != "auth status" &&
-		cmd != "auth logout" &&
-		cmd != "auth token" &&
-		cmd != "completion <shell>" &&
-		!strings.HasPrefix(cmd, "config ") &&
-		cmd != "api servers" {
+	if requiresAuth(cmd) {
 		if err := ctx.EnsureAuth(); err != nil {
 			output.PrintError("%v", err)
 			os.Exit(1)
@@ -168,4 +166,14 @@ func resolveOutputFormat(outputFlag string, jsonFlag, plainFlag bool) string {
 		return "tsv"
 	}
 	return "table"
+}
+
+func requiresAuth(cmd string) bool {
+	return cmd != "auth login" &&
+		cmd != "auth status" &&
+		cmd != "auth logout" &&
+		cmd != "auth token" &&
+		cmd != "completion <shell>" &&
+		!strings.HasPrefix(cmd, "config ") &&
+		cmd != "api servers"
 }

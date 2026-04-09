@@ -113,6 +113,24 @@ func ClearSessions() {
 	_ = os.Remove(path)
 }
 
+// ClearSession removes the cached session for a single endpoint.
+// Best-effort: errors are silently ignored.
+func ClearSession(endpoint string) {
+	sessions, err := loadAllSessions()
+	if err != nil {
+		return
+	}
+	if _, ok := sessions[endpoint]; !ok {
+		return
+	}
+	delete(sessions, endpoint)
+	if len(sessions) == 0 {
+		ClearSessions()
+		return
+	}
+	_ = saveAllSessions(sessions)
+}
+
 // LoadTools returns cached tool schemas for the given endpoint if the session
 // is valid. Returns nil if the session is expired or has no cached tools.
 // Best-effort: errors return nil.

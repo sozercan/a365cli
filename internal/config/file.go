@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -35,7 +36,9 @@ func LoadFileConfig() *FileConfig {
 	if err != nil {
 		return cfg
 	}
-	_ = json.Unmarshal(data, cfg)
+	if err := json.Unmarshal(data, cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: ignoring malformed config %s: %v\n", p, err)
+	}
 	return cfg
 }
 

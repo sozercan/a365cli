@@ -10,11 +10,7 @@ import (
 
 // spEndpoint returns the agent365 endpoint for the SharePoint MCP server.
 func spEndpoint() string {
-	ep := config.Endpoint("sharepoint")
-	if ep == "" {
-		panic("sharepoint server not configured")
-	}
-	return ep
+	return config.Endpoint("sharepoint")
 }
 
 // SharePointCmd groups all SharePoint subcommands.

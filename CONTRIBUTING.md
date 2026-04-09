@@ -14,13 +14,17 @@ See [docs/architecture.md](docs/architecture.md) for the full file layout and co
 
 ```bash
 make build      # Build
+make build-static # Build without CGO / OS-backed token cache
 make test       # Run all tests with verbose output
 make test-short # Run tests without verbose output
 make lint       # Format + vet
 make clean      # Remove build artifacts
 ```
 
-The Makefile handles build configuration automatically.
+The default native build uses CGO on macOS and Linux so the CLI can persist
+refresh tokens in the OS credential store. Use `make build-static` if you need
+a pure-Go build; auth still works, but token persistence falls back to the
+non-CGO path.
 
 ## Adding a New Service
 

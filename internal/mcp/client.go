@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/sozercan/a365cli/internal/config"
 	"github.com/sozercan/a365cli/internal/version"
 )
 
@@ -38,8 +39,8 @@ type Client struct {
 // NewClient creates a new MCP client for the given endpoint.
 func NewClient(endpoint string, tokenProvider TokenProvider) *Client {
 	return &Client{
-		endpoint:       endpoint,
-		tokenProvider:  tokenProvider,
+		endpoint:      endpoint,
+		tokenProvider: tokenProvider,
 		httpClient: &http.Client{
 			Transport: &http.Transport{
 				DialContext:           (&net.Dialer{Timeout: 30 * time.Second}).DialContext,
@@ -125,7 +126,7 @@ func (c *Client) CallTool(ctx context.Context, name string, args map[string]any)
 	if isSessionError(resp, err) {
 		c.logf("--- MCP session invalid, re-initializing for %s", c.endpoint)
 		c.sessionID = ""
-		ClearSessions()
+		ClearSession(c.endpoint)
 		if initErr := c.doInitialize(ctx); initErr != nil {
 			return nil, initErr
 		}
@@ -218,6 +219,10 @@ func (c *Client) doRequest(ctx context.Context, rpcReq JSONRPCRequest) (*JSONRPC
 
 	c.logf(">>> MCP %s %s\n%s", rpcReq.Method, c.endpoint, string(body))
 
+	if err := config.ValidateEndpointURL(c.endpoint); err != nil {
+		return nil, fmt.Errorf("invalid endpoint %q: %w", c.endpoint, err)
+	}
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -231,7 +236,10 @@ func (c *Client) doRequest(ctx context.Context, rpcReq JSONRPCRequest) (*JSONRPC
 		httpReq.Header.Set("Mcp-Session-Id", c.sessionID)
 	}
 
-	// Get bearer token
+	if c.tokenProvider == nil {
+		return nil, fmt.Errorf("token provider not configured")
+	}
+
 	token, err := c.tokenProvider(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get token: %w", err)
@@ -258,7 +266,8 @@ func (c *Client) doRequest(ctx context.Context, rpcReq JSONRPCRequest) (*JSONRPC
 
 	var rpcResp *JSONRPCResponse
 	if strings.HasPrefix(contentType, "text/event-stream") {
-		rpcResp, err = parseSSE(resp.Body)
+		requestID := rpcReq.ID
+		rpcResp, err = parseSSE(resp.Body, &requestID)
 	} else {
 		// Plain JSON response
 		rpcResp = &JSONRPCResponse{}
@@ -280,7 +289,7 @@ func (c *Client) doRequest(ctx context.Context, rpcReq JSONRPCRequest) (*JSONRPC
 // isRetryableStatus returns true for HTTP status codes that warrant a retry.
 func isRetryableStatus(code int) bool {
 	switch code {
-	case http.StatusTooManyRequests,    // 429
+	case http.StatusTooManyRequests, // 429
 		http.StatusBadGateway,         // 502
 		http.StatusServiceUnavailable, // 503
 		http.StatusGatewayTimeout:     // 504
@@ -359,8 +368,8 @@ func (c *Client) doHTTPWithRetry(ctx context.Context, httpReq *http.Request, bod
 	return resp, err
 }
 
-// parseSSE reads an SSE stream and extracts the first JSON-RPC message.
-func parseSSE(r io.Reader) (*JSONRPCResponse, error) {
+// parseSSE reads an SSE stream and extracts the JSON-RPC response for requestID.
+func parseSSE(r io.Reader, requestID *int) (*JSONRPCResponse, error) {
 	scanner := bufio.NewScanner(r)
 
 	// Increase buffer size for large responses.
@@ -390,6 +399,12 @@ func parseSSE(r io.Reader) (*JSONRPCResponse, error) {
 				// Skip non-JSON events (e.g., keep-alive)
 				continue
 			}
+			if resp.Result == nil && resp.Error == nil {
+				continue
+			}
+			if requestID != nil && resp.ID != *requestID {
+				continue
+			}
 			return &resp, nil
 		}
 	}
@@ -404,6 +419,12 @@ func parseSSE(r io.Reader) (*JSONRPCResponse, error) {
 		var resp JSONRPCResponse
 		if err := json.Unmarshal([]byte(data), &resp); err != nil {
 			return nil, fmt.Errorf("parse final SSE data: %w", err)
+		}
+		if resp.Result == nil && resp.Error == nil {
+			return nil, fmt.Errorf("no MCP response in SSE stream")
+		}
+		if requestID != nil && resp.ID != *requestID {
+			return nil, fmt.Errorf("no MCP response for request %d in SSE stream", *requestID)
 		}
 		return &resp, nil
 	}
