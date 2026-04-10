@@ -97,6 +97,11 @@ func (c *Context) Confirm(action string) error {
 	return fmt.Errorf("cancelled")
 }
 
+// CanPrompt reports whether interactive prompting is allowed.
+func (c *Context) CanPrompt() bool {
+	return !c.NoInput && isTerminal()
+}
+
 // isTerminal checks if stdin is a terminal (not a pipe).
 func isTerminal() bool {
 	fi, err := os.Stdin.Stat()

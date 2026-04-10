@@ -28,6 +28,7 @@ a365 teams list                    # List your Teams
 a365 mail search '?$top=5'        # Recent emails
 a365 cal list                     # Upcoming meetings
 a365 copilot chat "Summarize my week"   # Ask Copilot
+a365 copilot chat                       # Interactive Copilot prompt
 a365 me whoami                    # Your profile
 a365 odr ls                      # OneDrive files
 a365 websearch search "MCP protocol" https://modelcontextprotocol.io  # Web search
@@ -103,7 +104,7 @@ CLI flags and env vars always take precedence over config file values.
 | [SharePoint Lists](docs/sp-lists.md) | — | 13 | Lists, items, columns |
 | [OneDrive](docs/onedrive-remote.md) | `odr` | 12 | Personal OneDrive file management |
 | [Me](docs/me.md) | — | 5 | User profiles, org chart |
-| [Copilot](docs/copilot.md) | — | 1 | Natural language M365 search |
+| [Copilot](docs/copilot.md) | — | 1 | Natural language M365 search with interactive chat |
 | [Word](docs/word.md) | — | 4 | Documents, comments |
 | [Excel](docs/excel.md) | — | 4 | Workbooks, comments |
 | [Admin](docs/admin.md) | — | 3 | Users, licenses |
