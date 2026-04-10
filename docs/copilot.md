@@ -6,12 +6,12 @@ Ask natural language questions about all your Microsoft 365 content, including d
 
 | Command | Description | Key Arguments |
 |---------|-------------|---------------|
-| `copilot chat` | Ask Copilot about your M365 content | `<message>`, `--conversation-id` |
+| `copilot chat` | Ask Copilot about your M365 content, or start an interactive prompt | `[message]`, `--conversation-id` |
 
 ## Arguments
 
-- **`<message>`** (required) -- Natural language question about your M365 content.
-- **`--conversation-id`** (optional) -- Conversation ID for follow-up queries. Copilot returns a conversation ID in its response that you can pass to subsequent calls to maintain context.
+- **`[message]`** (optional) -- Natural language question about your M365 content. If omitted and stdin is interactive, `a365` starts a Copilot prompt.
+- **`--conversation-id`** (optional) -- Conversation ID for follow-up queries. One-shot human output prints the conversation ID to stderr so you can reuse it later.
 
 ## Examples
 
@@ -24,6 +24,9 @@ a365 copilot chat "Summarize recent emails from Alice about the Q3 budget"
 
 # Search across documents
 a365 copilot chat "Find the latest sales forecast spreadsheet"
+
+# Start an interactive Copilot session
+a365 copilot chat
 
 # Follow up on a previous conversation
 a365 copilot chat "Can you give more detail on the second point?" \
