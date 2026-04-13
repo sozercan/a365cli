@@ -6,14 +6,14 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity/cache v0.4.0
+	github.com/AzureAD/microsoft-authentication-extensions-for-go/cache v0.1.1
 	github.com/alecthomas/kong v1.15.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
-	golang.org/x/text v0.33.0
+	golang.org/x/text v0.36.0
 )
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
-	github.com/AzureAD/microsoft-authentication-extensions-for-go/cache v0.1.1 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.6.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
