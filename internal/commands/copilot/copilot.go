@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
@@ -43,20 +45,12 @@ func runChat(ctx *commands.Context, message, conversationID string) error {
 		return runInteractiveLoop(ctx, os.Stdin, os.Stderr, conversationID)
 	}
 
-	data, nextConversationID, err := callCopilot(ctx, question, conversationID)
+	data, _, err := callCopilot(ctx, question, conversationID)
 	if err != nil {
 		return err
 	}
 
-	if err := printCopilotResponse(ctx, data); err != nil {
-		return err
-	}
-
-	if nextConversationID != "" && ctx.Output.Format == output.FormatHuman {
-		fmt.Fprintf(os.Stderr, "Conversation ID: %s\n", nextConversationID)
-	}
-
-	return nil
+	return printCopilotResponse(ctx, data)
 }
 
 func runInteractiveLoop(ctx *commands.Context, input io.Reader, promptWriter io.Writer, conversationID string) error {
@@ -110,6 +104,9 @@ func runInteractiveLoop(ctx *commands.Context, input io.Reader, promptWriter io.
 }
 
 func callCopilot(ctx *commands.Context, message, conversationID string) (map[string]any, string, error) {
+	stopSpinner := startCopilotSpinner(ctx)
+	defer stopSpinner()
+
 	client := ctx.NewMCPClient(copilotEndpoint())
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return nil, "", fmt.Errorf("initialize: %w", err)
@@ -151,17 +148,19 @@ func printCopilotResponse(ctx *commands.Context, data map[string]any) error {
 		return ctx.Output.PrintItem(data)
 	}
 
-	fmt.Fprintln(ctx.Output.Writer, "Copilot:", message)
+	if ctx.NoInput {
+		fmt.Fprintln(ctx.Output.Writer, message)
+	} else {
+		fmt.Fprintln(ctx.Output.Writer, "Copilot:", message)
+	}
 
 	meta := cloneMap(data)
 	if messageKey != "" {
 		delete(meta, messageKey)
 	}
-	if ctx.Output.Format == output.FormatHuman {
-		delete(meta, "conversationId")
-		delete(meta, "conversationID")
-		delete(meta, "conversation_id")
-	}
+	delete(meta, "conversationId")
+	delete(meta, "conversationID")
+	delete(meta, "conversation_id")
 	delete(meta, "@odata.context")
 	delete(meta, "createdDateTime")
 	delete(meta, "displayName")
@@ -275,4 +274,70 @@ func isExitCommand(question string) bool {
 	default:
 		return false
 	}
+}
+
+func startCopilotSpinner(ctx *commands.Context) func() {
+	if ctx.Verbose || !stderrIsTerminal() {
+		return func() {}
+	}
+
+	const (
+		label      = "Thinking..."
+		startDelay = 200 * time.Millisecond
+		frameDelay = 120 * time.Millisecond
+	)
+
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	var once sync.Once
+
+	go func() {
+		defer close(done)
+
+		timer := time.NewTimer(startDelay)
+		defer timer.Stop()
+
+		select {
+		case <-stop:
+			return
+		case <-timer.C:
+		}
+
+		frames := []string{"|", "/", "-", "\\"}
+		ticker := time.NewTicker(frameDelay)
+		defer ticker.Stop()
+
+		render := func(frame string) {
+			fmt.Fprintf(os.Stderr, "\r%s %s", frame, label)
+		}
+
+		frameIndex := 0
+		render(frames[frameIndex])
+
+		for {
+			select {
+			case <-stop:
+				fmt.Fprintf(os.Stderr, "\r%s\r", strings.Repeat(" ", len(label)+2))
+				return
+			case <-ticker.C:
+				frameIndex = (frameIndex + 1) % len(frames)
+				render(frames[frameIndex])
+			}
+		}
+	}()
+
+	return func() {
+		once.Do(func() {
+			close(stop)
+			<-done
+		})
+	}
+}
+
+func stderrIsTerminal() bool {
+	fi, err := os.Stderr.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
 }

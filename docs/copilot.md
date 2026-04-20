@@ -11,7 +11,7 @@ Ask natural language questions about all your Microsoft 365 content, including d
 ## Arguments
 
 - **`[message]`** (optional) -- Natural language question about your M365 content. If omitted and stdin is interactive, `a365` starts a Copilot prompt.
-- **`--conversation-id`** (optional) -- Conversation ID for follow-up queries. One-shot human output prints the conversation ID to stderr so you can reuse it later.
+- **`--conversation-id`** (optional) -- Conversation ID for follow-up queries. Use `--output json` when you need to inspect returned conversation IDs.
 
 ## Examples
 
