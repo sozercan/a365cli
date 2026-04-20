@@ -104,7 +104,7 @@ func runInteractiveLoop(ctx *commands.Context, input io.Reader, promptWriter io.
 }
 
 func callCopilot(ctx *commands.Context, message, conversationID string) (map[string]any, string, error) {
-	stopSpinner := startCopilotSpinner(ctx, os.Stderr)
+	stopSpinner := startCopilotSpinner(ctx)
 	defer stopSpinner()
 
 	client := ctx.NewMCPClient(copilotEndpoint())
@@ -276,7 +276,7 @@ func isExitCommand(question string) bool {
 	}
 }
 
-func startCopilotSpinner(ctx *commands.Context, w io.Writer) func() {
+func startCopilotSpinner(ctx *commands.Context) func() {
 	if ctx.Verbose || !stderrIsTerminal() {
 		return func() {}
 	}
@@ -308,7 +308,7 @@ func startCopilotSpinner(ctx *commands.Context, w io.Writer) func() {
 		defer ticker.Stop()
 
 		render := func(frame string) {
-			fmt.Fprintf(w, "\r%s %s", frame, label)
+			fmt.Fprintf(os.Stderr, "\r%s %s", frame, label)
 		}
 
 		frameIndex := 0
@@ -317,7 +317,7 @@ func startCopilotSpinner(ctx *commands.Context, w io.Writer) func() {
 		for {
 			select {
 			case <-stop:
-				fmt.Fprintf(w, "\r%s\r", strings.Repeat(" ", len(label)+2))
+				fmt.Fprintf(os.Stderr, "\r%s\r", strings.Repeat(" ", len(label)+2))
 				return
 			case <-ticker.C:
 				frameIndex = (frameIndex + 1) % len(frames)

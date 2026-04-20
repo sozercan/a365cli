@@ -120,8 +120,8 @@ func TestPrintCopilotResponse_NoInputOmitsChatPrefix(t *testing.T) {
 	}
 }
 
-func TestStartCopilotSpinner_DisabledWithoutTerminal(t *testing.T) {
-	stop := startCopilotSpinner(&commands.Context{}, io.Discard)
+func TestStartCopilotSpinner_DisabledInVerboseMode(t *testing.T) {
+	stop := startCopilotSpinner(&commands.Context{Verbose: true})
 	stop()
 }
 
