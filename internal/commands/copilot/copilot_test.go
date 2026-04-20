@@ -87,9 +87,42 @@ func TestPrintCopilotResponse_PlainUsesChatStyle(t *testing.T) {
 	if !strings.Contains(out, "Copilot: Here is the answer") {
 		t.Fatalf("expected Copilot-prefixed plain output, got %q", out)
 	}
-	if !strings.Contains(out, "conversationId:") || !strings.Contains(out, "conv-123") {
-		t.Fatalf("expected conversationId to remain visible in plain output, got %q", out)
+	if strings.Contains(out, "conversationId") || strings.Contains(out, "conv-123") {
+		t.Fatalf("expected conversationId to stay hidden in plain output, got %q", out)
 	}
+}
+
+func TestPrintCopilotResponse_NoInputOmitsChatPrefix(t *testing.T) {
+	var buf bytes.Buffer
+	ctx := &commands.Context{
+		Ctx:     context.Background(),
+		NoInput: true,
+		Output:  &output.Formatter{Format: output.FormatHuman, Writer: &buf},
+	}
+
+	err := printCopilotResponse(ctx, map[string]any{
+		"message":    "Here is the answer",
+		"references": []any{"doc-1"},
+	})
+	if err != nil {
+		t.Fatalf("printCopilotResponse() error: %v", err)
+	}
+
+	out := buf.String()
+	if strings.Contains(out, "Copilot:") {
+		t.Fatalf("expected no Copilot prefix for --no-input output, got %q", out)
+	}
+	if !strings.Contains(out, "Here is the answer") {
+		t.Fatalf("expected message output, got %q", out)
+	}
+	if !strings.Contains(out, "references:") || !strings.Contains(out, "doc-1") {
+		t.Fatalf("expected extra metadata to be preserved, got %q", out)
+	}
+}
+
+func TestStartCopilotSpinner_DisabledWithoutTerminal(t *testing.T) {
+	stop := startCopilotSpinner(&commands.Context{}, io.Discard)
+	stop()
 }
 
 func TestPrintCopilotResponse_ConversationPayload(t *testing.T) {
