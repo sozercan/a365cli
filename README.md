@@ -24,15 +24,16 @@ brew tap sozercan/repo && brew install a365
 a365 auth login
 
 # Use it
-a365 teams list                    # List your Teams
-a365 mail search '?$top=5'        # Recent emails
-a365 cal list                     # Upcoming meetings
-a365 copilot chat "Summarize my week"   # Ask Copilot
-a365 copilot agents                     # List available Copilot agents
-a365 copilot chat                       # Interactive Copilot prompt
-a365 me whoami                    # Your profile
-a365 odr ls                      # OneDrive files
-a365 websearch search "MCP protocol" https://modelcontextprotocol.io  # Web search
+a365 teams list                               # List your Teams
+a365 mail search '?$top=5'                    # Recent emails
+a365 cal list                                 # Upcoming meetings
+a365 copilot chat "Summarize my week"         # Ask Copilot
+a365 copilot agents                           # List available Copilot agents
+a365 copilot chat                             # Interactive Copilot prompt
+a365 me whoami                                # Your profile
+a365 odr ls                                   # OneDrive files
+a365 websearch search "MCP protocol" \
+  https://modelcontextprotocol.io             # Web search
 ```
 
 ## Installation
@@ -87,10 +88,10 @@ a365 auth logout
 Persist defaults in `~/.a365/config.json`:
 
 ```bash
-a365 config set client-id your-client-id-here  # override the default client ID
-a365 config set output json        # or table, tsv
-a365 config show                   # view all settings
-a365 config path                   # ~/.a365/config.json
+a365 config set client-id your-client-id-here  # Override the default client ID
+a365 config set output json                    # Set default output: table, json, or tsv
+a365 config show                               # Show all settings
+a365 config path                               # Show the config file path
 ```
 
 CLI flags and env vars always take precedence over config file values.
@@ -180,10 +181,10 @@ $ a365 teams chats send "19:abc@thread.v2" "Hello" --dry-run -o json
 Discover and call any MCP tool directly. See [docs/api-explorer.md](docs/api-explorer.md) for the full guide.
 
 ```bash
-a365 api servers --probe           # List all servers with tool counts
-a365 api discover                  # Live server catalog from gateway
-a365 api tools teams               # List tools + required params
-a365 api call me GetMyDetails '{}'  # Raw MCP tool call
+a365 api servers --probe              # List all servers with tool counts
+a365 api discover                     # Live server catalog from gateway
+a365 api tools teams                  # List tools and required params
+a365 api call me GetMyDetails '{}'    # Raw MCP tool call
 ```
 
 ## Shell Completion
