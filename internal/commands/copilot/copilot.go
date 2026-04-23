@@ -15,7 +15,11 @@ import (
 	"github.com/sozercan/a365cli/internal/output"
 )
 
-const copilotChatTool = "copilot_chat"
+const (
+	copilotChatTool               = "copilot_chat"
+	copilotServiceErrorMaxRetries = 1
+	copilotServiceErrorRetryDelay = time.Second
+)
 
 // CopilotCmd groups all Copilot subcommands.
 type CopilotCmd struct {
@@ -24,6 +28,15 @@ type CopilotCmd struct {
 
 func copilotEndpoint() string {
 	return config.Endpoint("copilot")
+}
+
+type copilotServiceError struct {
+	message   string
+	retryable bool
+}
+
+func (e *copilotServiceError) Error() string {
+	return e.message
 }
 
 // CopilotChatCmd searches internal M365 content using natural language.
@@ -119,22 +132,42 @@ func callCopilot(ctx *commands.Context, message, conversationID string) (map[str
 		args["conversationId"] = conversationID
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, copilotChatTool, args)
-	if err != nil {
-		return nil, "", fmt.Errorf("copilot chat: %w", err)
-	}
+	for attempt := 0; ; attempt++ {
+		resp, err := client.CallTool(ctx.Ctx, copilotChatTool, args)
+		if err != nil {
+			return nil, "", fmt.Errorf("copilot chat: %w", err)
+		}
 
-	data, err := output.ExtractContent(resp)
-	if err != nil {
-		return nil, "", err
-	}
+		data, err := output.ExtractContent(resp)
+		if err != nil {
+			return nil, "", err
+		}
 
-	nextConversationID := findConversationID(data)
-	if ctx.Output.Format != output.FormatJSON {
-		data = normalizeCopilotResponse(data, nextConversationID)
-	}
+		if svcErr := copilotServiceErrorFromData(data); svcErr != nil {
+			if svcErr.retryable && attempt < copilotServiceErrorMaxRetries {
+				if ctx.Verbose {
+					fmt.Fprintf(os.Stderr, "--- Copilot returned a retryable service error; retrying (attempt %d/%d) after %v\n%s\n", attempt+1, copilotServiceErrorMaxRetries, copilotServiceErrorRetryDelay, svcErr.Error())
+				}
 
-	return data, nextConversationID, nil
+				select {
+				case <-ctx.Ctx.Done():
+					return nil, "", ctx.Ctx.Err()
+				case <-time.After(copilotServiceErrorRetryDelay):
+				}
+
+				continue
+			}
+
+			return nil, "", fmt.Errorf("copilot chat: %w", svcErr)
+		}
+
+		nextConversationID := findConversationID(data)
+		if ctx.Output.Format != output.FormatJSON {
+			data = normalizeCopilotResponse(data, nextConversationID)
+		}
+
+		return data, nextConversationID, nil
+	}
 }
 
 func printCopilotResponse(ctx *commands.Context, data map[string]any) error {
@@ -230,6 +263,55 @@ func cloneMap(data map[string]any) map[string]any {
 		cloned[k] = v
 	}
 	return cloned
+}
+
+func copilotServiceErrorFromData(data map[string]any) *copilotServiceError {
+	_, message := extractPrimaryText(data)
+	message = sanitizeCopilotServiceMessage(message)
+	if message == "" {
+		return nil
+	}
+
+	lower := strings.ToLower(message)
+	if !strings.HasPrefix(lower, "error executing tool:") {
+		return nil
+	}
+
+	return &copilotServiceError{
+		message:   message,
+		retryable: isRetryableCopilotServiceError(message),
+	}
+}
+
+func isRetryableCopilotServiceError(message string) bool {
+	lower := strings.ToLower(message)
+	return strings.Contains(lower, "timed out") || strings.Contains(lower, "timed-out") || strings.Contains(lower, "timeout")
+}
+
+func sanitizeCopilotServiceMessage(message string) string {
+	message = strings.ReplaceAll(message, "\r\n", "\n")
+	message = strings.ReplaceAll(message, "\r", "\n")
+
+	seen := map[string]struct{}{}
+	lines := strings.Split(message, "\n")
+	cleaned := make([]string, 0, len(lines))
+
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		if i == 0 {
+			line = strings.TrimSpace(strings.TrimPrefix(line, "Error:"))
+		}
+		if line == "" {
+			continue
+		}
+		if _, ok := seen[line]; ok {
+			continue
+		}
+		seen[line] = struct{}{}
+		cleaned = append(cleaned, line)
+	}
+
+	return strings.TrimSpace(strings.Join(cleaned, "\n"))
 }
 
 func normalizeCopilotResponse(data map[string]any, conversationID string) map[string]any {

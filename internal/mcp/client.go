@@ -26,31 +26,56 @@ type VerboseLogger func(format string, args ...any)
 
 // Client is a lightweight MCP JSON-RPC client that speaks HTTP+SSE to agent365.
 type Client struct {
-	endpoint       string
-	tokenProvider  TokenProvider
-	httpClient     *http.Client
-	sessionID      string
-	nextID         atomic.Int64
-	verbose        VerboseLogger
-	maxRetries     int
-	retryBaseDelay time.Duration
+	endpoint              string
+	tokenProvider         TokenProvider
+	httpClient            *http.Client
+	responseHeaderTimeout time.Duration
+	sessionID             string
+	nextID                atomic.Int64
+	verbose               VerboseLogger
+	maxRetries            int
+	retryBaseDelay        time.Duration
 }
 
 // NewClient creates a new MCP client for the given endpoint.
 func NewClient(endpoint string, tokenProvider TokenProvider) *Client {
+	responseHeaderTimeout := config.MCPResponseHeaderTimeout(serviceNameFromEndpoint(endpoint))
+
 	return &Client{
-		endpoint:      endpoint,
-		tokenProvider: tokenProvider,
+		endpoint:              endpoint,
+		tokenProvider:         tokenProvider,
+		responseHeaderTimeout: responseHeaderTimeout,
 		httpClient: &http.Client{
 			Transport: &http.Transport{
 				DialContext:           (&net.Dialer{Timeout: 30 * time.Second}).DialContext,
 				TLSHandshakeTimeout:   10 * time.Second,
-				ResponseHeaderTimeout: 60 * time.Second,
+				ResponseHeaderTimeout: responseHeaderTimeout,
 			},
 		},
 		maxRetries:     2,
 		retryBaseDelay: time.Second,
 	}
+}
+
+func serviceNameFromEndpoint(endpoint string) string {
+	trimmed := strings.TrimSuffix(endpoint, "/")
+	if trimmed == "" {
+		return ""
+	}
+
+	lastSlash := strings.LastIndex(trimmed, "/")
+	serverName := trimmed
+	if lastSlash >= 0 {
+		serverName = trimmed[lastSlash+1:]
+	}
+
+	for service, knownServerName := range config.Servers {
+		if knownServerName == serverName {
+			return service
+		}
+	}
+
+	return ""
 }
 
 // SetVerbose enables verbose logging of MCP requests and responses.
@@ -217,7 +242,7 @@ func (c *Client) doRequest(ctx context.Context, rpcReq JSONRPCRequest) (*JSONRPC
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	c.logf(">>> MCP %s %s\n%s", rpcReq.Method, c.endpoint, string(body))
+	c.logf(">>> MCP %s %s (response-header-timeout=%s)\n%s", rpcReq.Method, c.endpoint, c.responseHeaderTimeout, string(body))
 
 	if err := config.ValidateEndpointURL(c.endpoint); err != nil {
 		return nil, fmt.Errorf("invalid endpoint %q: %w", c.endpoint, err)
