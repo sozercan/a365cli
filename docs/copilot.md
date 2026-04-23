@@ -2,13 +2,13 @@
 
 Ask natural language questions about all your Microsoft 365 content, including documents, emails, chats, and files. Copilot uses M365 intelligence to find and summarize information across your tenant.
 
-You can also inspect available Copilot agents and target a specific agent when chatting.
+You can also inspect available Copilot agents and target a specific agent when chatting. Web search is enabled by default for `copilot chat`; use `--no-web-search` to send `enableWebSearch=false` to Copilot.
 
 ## Commands
 
 | Command | Description | Key Arguments |
 |---------|-------------|---------------|
-| `copilot chat` | Ask Copilot about your M365 content, or start an interactive prompt | `[message]`, `--conversation-id`, `--agent` |
+| `copilot chat` | Ask Copilot about your M365 content, or start an interactive prompt | `[message]`, `--conversation-id`, `--agent`, `--no-web-search` |
 | `copilot agents` | List available Copilot agents and their chat selectors | _(none)_ |
 
 ## Arguments
@@ -16,6 +16,11 @@ You can also inspect available Copilot agents and target a specific agent when c
 - **`[message]`** (optional) -- Natural language question about your M365 content. If omitted and stdin is interactive, `a365` starts a Copilot prompt.
 - **`--conversation-id`** (optional) -- Conversation ID for follow-up queries. Use `--output json` when you need to inspect returned conversation IDs.
 - **`--agent`** (optional) -- Copilot agent name, selector, or title ID. Resolve available selectors with `a365 copilot agents`.
+- **`--no-web-search`** (optional) -- Request Copilot with web search disabled. By default, `copilot chat` sends `enableWebSearch=true`; with `--no-web-search`, `a365` sends `enableWebSearch=false`.
+
+## Behavior note
+
+`--no-web-search` controls the request sent by `a365`, not a strict guarantee about Copilot's final grounding behavior. In live testing, Copilot could still return public/external grounding or citations for some prompts even when `enableWebSearch=false`.
 
 ## Examples
 
@@ -34,6 +39,9 @@ a365 copilot chat "Summarize recent emails from Alice about the Q3 budget"
 
 # Search across documents
 a365 copilot chat "Find the latest sales forecast spreadsheet"
+
+# Ask Copilot with web search disabled
+a365 copilot chat --no-web-search "Summarize recent emails from Alice about the Q3 budget"
 
 # Start an interactive Copilot session
 a365 copilot chat

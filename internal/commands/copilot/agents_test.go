@@ -332,6 +332,9 @@ func TestCopilotChatCmd_Run_ResolvesAgentAndPassesAgentID(t *testing.T) {
 	if chatArgs["agentId"] != "budget" {
 		t.Fatalf("expected chat call to include agentId=budget, got %v", chatArgs["agentId"])
 	}
+	if enabled, ok := chatArgs["enableWebSearch"].(bool); !ok || !enabled {
+		t.Fatalf("expected chat call to enable web search by default, got %v", chatArgs["enableWebSearch"])
+	}
 	if chatArgs["message"] != "Summarize my week" {
 		t.Fatalf("expected chat call to include message, got %v", chatArgs["message"])
 	}
