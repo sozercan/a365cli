@@ -246,7 +246,7 @@ func TestRunInteractiveLoop_ReusesConversationID(t *testing.T) {
 		Output: &output.Formatter{Format: output.FormatHuman, Writer: &out},
 	}
 
-	err := runInteractiveLoop(ctx, strings.NewReader("first\nsecond\nquit\n"), &prompt, "")
+	err := runInteractiveLoop(ctx, strings.NewReader("first\nsecond\nquit\n"), &prompt, "", "")
 	if err != nil {
 		t.Fatalf("runInteractiveLoop() error: %v", err)
 	}
@@ -320,7 +320,7 @@ func TestRunInteractiveLoop_ReturnsErrorOnEOFFailure(t *testing.T) {
 		Output: &output.Formatter{Format: output.FormatHuman, Writer: &out},
 	}
 
-	err := runInteractiveLoop(ctx, strings.NewReader("first"), &prompt, "")
+	err := runInteractiveLoop(ctx, strings.NewReader("first"), &prompt, "", "")
 	if err == nil {
 		t.Fatal("expected EOF request failure to return an error")
 	}
