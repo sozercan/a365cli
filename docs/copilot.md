@@ -53,3 +53,12 @@ a365 copilot chat "Can you give more detail on the second point?" \
 # Output as JSON
 a365 copilot chat "Who shared files with me this week?" --output json
 ```
+
+
+## Timeout tuning
+
+Copilot requests can take longer than typical MCP tool calls. By default, `a365` waits up to `5m` for Copilot response headers before failing. Override this with `A365_COPILOT_RESPONSE_HEADER_TIMEOUT`, or use `A365_MCP_RESPONSE_HEADER_TIMEOUT` to change the timeout for every MCP service.
+
+```sh
+A365_COPILOT_RESPONSE_HEADER_TIMEOUT=10m a365 copilot chat "Summarize recent project updates"
+```

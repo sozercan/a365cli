@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -29,6 +30,12 @@ const (
 
 	// DefaultClientID is the default Entra app client ID (VS Code MCP extension).
 	DefaultClientID = "aebc6443-996d-45c2-90f0-388ff96faa56"
+
+	// DefaultMCPResponseHeaderTimeout is the default HTTP response-header timeout for MCP requests.
+	DefaultMCPResponseHeaderTimeout = 60 * time.Second
+
+	// DefaultCopilotResponseHeaderTimeout is longer because Copilot requests can take longer to start streaming.
+	DefaultCopilotResponseHeaderTimeout = 5 * time.Minute
 )
 
 // Servers maps friendly names to agent365 MCP server names.
@@ -71,6 +78,33 @@ func BaseURL() string {
 		base += "/"
 	}
 	return base
+}
+
+// MCPResponseHeaderTimeout returns the HTTP response-header timeout for MCP requests.
+//
+// A365_MCP_RESPONSE_HEADER_TIMEOUT overrides the default for all services.
+// A365_COPILOT_RESPONSE_HEADER_TIMEOUT overrides the Copilot service specifically.
+func MCPResponseHeaderTimeout(service string) time.Duration {
+	timeout := DefaultMCPResponseHeaderTimeout
+	if strings.EqualFold(service, "copilot") {
+		timeout = DefaultCopilotResponseHeaderTimeout
+	}
+
+	if v := strings.TrimSpace(os.Getenv("A365_MCP_RESPONSE_HEADER_TIMEOUT")); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d >= 0 {
+			timeout = d
+		}
+	}
+
+	if strings.EqualFold(service, "copilot") {
+		if v := strings.TrimSpace(os.Getenv("A365_COPILOT_RESPONSE_HEADER_TIMEOUT")); v != "" {
+			if d, err := time.ParseDuration(v); err == nil && d >= 0 {
+				timeout = d
+			}
+		}
+	}
+
+	return timeout
 }
 
 // ValidateEndpointURL rejects malformed endpoints and non-loopback plaintext HTTP.

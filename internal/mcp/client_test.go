@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/sozercan/a365cli/internal/config"
 )
 
 func TestParseSSE_ToolCall(t *testing.T) {
@@ -687,5 +689,71 @@ func TestClient_ListToolsCached(t *testing.T) {
 
 	if c := atomic.LoadInt32(&callCount); c != 1 {
 		t.Errorf("expected tools/list called only once (cached), got %d", c)
+	}
+}
+
+func TestServiceNameFromEndpoint(t *testing.T) {
+	if got := serviceNameFromEndpoint(config.Endpoint("copilot")); got != "copilot" {
+		t.Fatalf("serviceNameFromEndpoint(copilot) = %q, want %q", got, "copilot")
+	}
+	if got := serviceNameFromEndpoint("https://example.com/custom/"); got != "" {
+		t.Fatalf("serviceNameFromEndpoint(custom) = %q, want empty", got)
+	}
+}
+
+func TestNewClient_ResponseHeaderTimeout(t *testing.T) {
+	t.Setenv("A365_MCP_RESPONSE_HEADER_TIMEOUT", "")
+	t.Setenv("A365_COPILOT_RESPONSE_HEADER_TIMEOUT", "")
+
+	generic := NewClient(config.Endpoint("teams"), nil)
+	if generic.responseHeaderTimeout != config.DefaultMCPResponseHeaderTimeout {
+		t.Fatalf("generic responseHeaderTimeout = %v, want %v", generic.responseHeaderTimeout, config.DefaultMCPResponseHeaderTimeout)
+	}
+	transport, ok := generic.httpClient.Transport.(*http.Transport)
+	if !ok {
+		t.Fatal("generic transport is not *http.Transport")
+	}
+	if transport.ResponseHeaderTimeout != config.DefaultMCPResponseHeaderTimeout {
+		t.Fatalf("generic transport ResponseHeaderTimeout = %v, want %v", transport.ResponseHeaderTimeout, config.DefaultMCPResponseHeaderTimeout)
+	}
+
+	copilot := NewClient(config.Endpoint("copilot"), nil)
+	if copilot.responseHeaderTimeout != config.DefaultCopilotResponseHeaderTimeout {
+		t.Fatalf("copilot responseHeaderTimeout = %v, want %v", copilot.responseHeaderTimeout, config.DefaultCopilotResponseHeaderTimeout)
+	}
+	transport, ok = copilot.httpClient.Transport.(*http.Transport)
+	if !ok {
+		t.Fatal("copilot transport is not *http.Transport")
+	}
+	if transport.ResponseHeaderTimeout != config.DefaultCopilotResponseHeaderTimeout {
+		t.Fatalf("copilot transport ResponseHeaderTimeout = %v, want %v", transport.ResponseHeaderTimeout, config.DefaultCopilotResponseHeaderTimeout)
+	}
+}
+
+func TestClient_CopilotUsesLongerResponseHeaderTimeout(t *testing.T) {
+	t.Setenv("A365_MCP_RESPONSE_HEADER_TIMEOUT", "20ms")
+	t.Setenv("A365_COPILOT_RESPONSE_HEADER_TIMEOUT", "500ms")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(100 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"jsonrpc":"2.0","id":1,"result":{"tools":[]}}`)
+	}))
+	defer server.Close()
+
+	tokenProvider := func(ctx context.Context) (string, error) {
+		return "token", nil
+	}
+
+	generic := NewClient(server.URL+"/"+config.Servers["teams"]+"/", tokenProvider)
+	_, err := generic.doRequest(context.Background(), JSONRPCRequest{JSONRPC: "2.0", ID: 1, Method: "tools/list"})
+	if err == nil {
+		t.Fatal("expected generic MCP request to hit response-header timeout")
+	}
+
+	copilot := NewClient(server.URL+"/"+config.Servers["copilot"]+"/", tokenProvider)
+	_, err = copilot.doRequest(context.Background(), JSONRPCRequest{JSONRPC: "2.0", ID: 1, Method: "tools/list"})
+	if err != nil {
+		t.Fatalf("expected copilot request to succeed with longer timeout, got %v", err)
 	}
 }

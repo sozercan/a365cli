@@ -79,6 +79,8 @@ a365 auth logout
 | `A365_CLIENT_ID` | `--client-id` | Entra app client ID (default: `aebc6443-996d-45c2-90f0-388ff96faa56`) |
 | `A365_TENANT_ID` | `--tenant-id` | Entra tenant ID (optional, defaults to `organizations`) |
 | `A365_ENDPOINT` | — | Override the agent365 base URL |
+| `A365_MCP_RESPONSE_HEADER_TIMEOUT` | — | Override the MCP HTTP response-header timeout (for example `180s`, `5m`) |
+| `A365_COPILOT_RESPONSE_HEADER_TIMEOUT` | — | Override the Copilot MCP response-header timeout (default: `5m`) |
 
 ## Configuration
 

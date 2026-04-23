@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestBaseURL_Default(t *testing.T) {
 	t.Setenv("A365_ENDPOINT", "")
@@ -103,5 +106,44 @@ func TestServers_HasExpectedKeys(t *testing.T) {
 		if _, ok := Servers[key]; !ok {
 			t.Errorf("Servers map missing expected key %q", key)
 		}
+	}
+}
+
+func TestMCPResponseHeaderTimeout(t *testing.T) {
+	t.Setenv("A365_MCP_RESPONSE_HEADER_TIMEOUT", "")
+	t.Setenv("A365_COPILOT_RESPONSE_HEADER_TIMEOUT", "")
+
+	if got := MCPResponseHeaderTimeout(""); got != DefaultMCPResponseHeaderTimeout {
+		t.Fatalf(`MCPResponseHeaderTimeout("") = %v, want %v`, got, DefaultMCPResponseHeaderTimeout)
+	}
+	if got := MCPResponseHeaderTimeout("copilot"); got != DefaultCopilotResponseHeaderTimeout {
+		t.Fatalf(`MCPResponseHeaderTimeout("copilot") = %v, want %v`, got, DefaultCopilotResponseHeaderTimeout)
+	}
+
+	t.Setenv("A365_MCP_RESPONSE_HEADER_TIMEOUT", "90s")
+	if got := MCPResponseHeaderTimeout(""); got != 90*time.Second {
+		t.Fatalf("global override = %v, want %v", got, 90*time.Second)
+	}
+	if got := MCPResponseHeaderTimeout("copilot"); got != 90*time.Second {
+		t.Fatalf("global override for copilot = %v, want %v", got, 90*time.Second)
+	}
+
+	t.Setenv("A365_COPILOT_RESPONSE_HEADER_TIMEOUT", "3m")
+	if got := MCPResponseHeaderTimeout("copilot"); got != 3*time.Minute {
+		t.Fatalf("copilot override = %v, want %v", got, 3*time.Minute)
+	}
+
+	t.Setenv("A365_MCP_RESPONSE_HEADER_TIMEOUT", "invalid")
+	t.Setenv("A365_COPILOT_RESPONSE_HEADER_TIMEOUT", "invalid")
+	if got := MCPResponseHeaderTimeout(""); got != DefaultMCPResponseHeaderTimeout {
+		t.Fatalf("invalid global override should fall back to default, got %v", got)
+	}
+	if got := MCPResponseHeaderTimeout("copilot"); got != DefaultCopilotResponseHeaderTimeout {
+		t.Fatalf("invalid copilot override should fall back to default, got %v", got)
+	}
+
+	t.Setenv("A365_COPILOT_RESPONSE_HEADER_TIMEOUT", "0")
+	if got := MCPResponseHeaderTimeout("copilot"); got != 0 {
+		t.Fatalf("copilot zero override = %v, want 0", got)
 	}
 }
