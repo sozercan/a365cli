@@ -10,7 +10,7 @@ import (
 
 // DASearchCmd groups Declarative Agent Search subcommands.
 type DASearchCmd struct {
-	Agents DASearchAgentsCmd `cmd:"" help:"List available M365 Copilot agents"`
+	Agents DASearchAgentsCmd `cmd:"" help:"List available M365 Copilot agents (raw DASearch output)"`
 }
 
 func dasearchEndpoint() string {

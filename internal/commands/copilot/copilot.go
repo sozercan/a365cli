@@ -23,7 +23,8 @@ const (
 
 // CopilotCmd groups all Copilot subcommands.
 type CopilotCmd struct {
-	Chat CopilotChatCmd `cmd:"" help:"Ask Copilot about your M365 content"`
+	Chat   CopilotChatCmd   `cmd:"" help:"Ask Copilot about your M365 content"`
+	Agents CopilotAgentsCmd `cmd:"" help:"List available Copilot agents and selectors"`
 }
 
 func copilotEndpoint() string {
@@ -43,22 +44,28 @@ func (e *copilotServiceError) Error() string {
 type CopilotChatCmd struct {
 	Message        string `arg:"" help:"Natural language question about your M365 content" optional:""`
 	ConversationID string `help:"Conversation ID for follow-up queries" name:"conversation-id" optional:""`
+	Agent          string `help:"Copilot agent name or ID (resolved before chat)" name:"agent" optional:""`
+	NoWebSearch    bool   `help:"Disable web search for Copilot grounding" name:"no-web-search"`
 }
 
 func (c *CopilotChatCmd) Run(ctx *commands.Context) error {
-	return runChat(ctx, c.Message, c.ConversationID)
+	agentSelector, err := resolveAgentForChat(ctx, c.Agent)
+	if err != nil {
+		return err
+	}
+	return runChat(ctx, c.Message, c.ConversationID, agentSelector, !c.NoWebSearch)
 }
 
-func runChat(ctx *commands.Context, message, conversationID string) error {
+func runChat(ctx *commands.Context, message, conversationID, agentSelector string, enableWebSearch bool) error {
 	question := strings.TrimSpace(message)
 	if question == "" {
 		if !ctx.CanPrompt() {
 			return fmt.Errorf("question required in non-interactive mode")
 		}
-		return runInteractiveLoop(ctx, os.Stdin, os.Stderr, conversationID)
+		return runInteractiveLoop(ctx, os.Stdin, os.Stderr, conversationID, agentSelector, enableWebSearch)
 	}
 
-	data, _, err := callCopilot(ctx, question, conversationID)
+	data, _, err := callCopilot(ctx, question, conversationID, agentSelector, enableWebSearch)
 	if err != nil {
 		return err
 	}
@@ -66,7 +73,7 @@ func runChat(ctx *commands.Context, message, conversationID string) error {
 	return printCopilotResponse(ctx, data)
 }
 
-func runInteractiveLoop(ctx *commands.Context, input io.Reader, promptWriter io.Writer, conversationID string) error {
+func runInteractiveLoop(ctx *commands.Context, input io.Reader, promptWriter io.Writer, conversationID, agentSelector string, enableWebSearch bool) error {
 	reader := bufio.NewReader(input)
 	currentConversationID := conversationID
 
@@ -93,7 +100,7 @@ func runInteractiveLoop(ctx *commands.Context, input io.Reader, promptWriter io.
 			return nil
 		}
 
-		data, nextConversationID, askErr := callCopilot(ctx, question, currentConversationID)
+		data, nextConversationID, askErr := callCopilot(ctx, question, currentConversationID, agentSelector, enableWebSearch)
 		if askErr != nil {
 			fmt.Fprintf(promptWriter, "Error: %v\n", askErr)
 			if eof {
@@ -116,7 +123,7 @@ func runInteractiveLoop(ctx *commands.Context, input io.Reader, promptWriter io.
 	}
 }
 
-func callCopilot(ctx *commands.Context, message, conversationID string) (map[string]any, string, error) {
+func callCopilot(ctx *commands.Context, message, conversationID, agentSelector string, enableWebSearch bool) (map[string]any, string, error) {
 	stopSpinner := startCopilotSpinner(ctx)
 	defer stopSpinner()
 
@@ -126,10 +133,14 @@ func callCopilot(ctx *commands.Context, message, conversationID string) (map[str
 	}
 
 	args := map[string]any{
-		"message": message,
+		"enableWebSearch": enableWebSearch,
+		"message":         message,
 	}
 	if conversationID != "" {
 		args["conversationId"] = conversationID
+	}
+	if agentSelector != "" {
+		args["agentId"] = agentSelector
 	}
 
 	for attempt := 0; ; attempt++ {

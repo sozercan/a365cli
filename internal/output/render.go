@@ -9,6 +9,10 @@ import (
 )
 
 // RenderTable writes rows as an aligned table with headers using tabwriter.
+//
+// For columns with Width > 0, the configured width acts as the minimum display
+// width for alignment in addition to being the truncation width. Columns with
+// Width == 0 are auto-sized from their observed content.
 func RenderTable(w io.Writer, columns []Column, rows []map[string]any) {
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
 	defer tw.Flush()
@@ -16,7 +20,7 @@ func RenderTable(w io.Writer, columns []Column, rows []map[string]any) {
 	// Header row
 	headers := make([]string, len(columns))
 	for i, col := range columns {
-		headers[i] = col.Header
+		headers[i] = padTableCell(col.Header, col, i < len(columns)-1)
 	}
 	fmt.Fprintln(tw, strings.Join(headers, "\t"))
 
@@ -28,10 +32,25 @@ func RenderTable(w io.Writer, columns []Column, rows []map[string]any) {
 			if col.Width > 0 {
 				v = truncate(v, col.Width)
 			}
-			vals[i] = v
+			vals[i] = padTableCell(v, col, i < len(columns)-1)
 		}
 		fmt.Fprintln(tw, strings.Join(vals, "\t"))
 	}
+}
+
+func padTableCell(value string, col Column, pad bool) string {
+	if !pad || col.Width <= 0 {
+		return value
+	}
+
+	width := col.Width
+	if len(col.Header) > width {
+		width = len(col.Header)
+	}
+	if len(value) >= width {
+		return value
+	}
+	return value + strings.Repeat(" ", width-len(value))
 }
 
 // RenderTSV writes rows as tab-separated values with a header row. No alignment.
