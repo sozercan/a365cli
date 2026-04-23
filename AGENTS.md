@@ -8,10 +8,12 @@
 ## Build and Test
 
 ```bash
-make build          # build
-make test           # go test ./... -v
-go test ./... -cover  # with coverage
-go vet ./...        # lint
+make build                 # build
+make test                  # go test ./... -v
+go test ./... -cover       # with coverage
+go vet ./...               # vet checks
+golangci-lint run ./...    # lint checks (matches CI)
+golangci-lint run ./... --fix  # auto-fix supported lint issues
 ```
 
 Binary is always called `a365`. Module is `github.com/sozercan/a365cli`.
@@ -56,7 +58,8 @@ Adding a new service = new directory in `internal/commands/`, register in `main.
 - Use plan mode for architectural changes or new service additions
 - Prefer `make build` over `go build`
 - Run `go test ./... -count=1` after any code change
-- Run `go vet ./...` before committing
+- Run `go vet ./...` and `golangci-lint run ./...` before committing
+- If lint issues look auto-fixable, try `golangci-lint run ./... --fix` before making manual edits
 - When adding a new M365 service, follow the pattern in CONTRIBUTING.md "Adding a New Service"
 - For live testing, the default client ID works out of the box — override with `A365_CLIENT_ID` if needed
 - Never post messages or modify data during testing without explicit user permission — use `--dry-run`

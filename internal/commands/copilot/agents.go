@@ -345,7 +345,7 @@ func resolveMatchedAgent(query string, matches []agentInfo, catalog []agentInfo)
 
 func validateResolvedAgent(query string, agent agentInfo, catalog []agentInfo) error {
 	if agent.Selector == "" {
-		return fmt.Errorf("Copilot agent %q does not expose a usable chat selector. Run 'a365 copilot agents' to inspect available selectors", query)
+		return fmt.Errorf("copilot agent %q does not expose a usable chat selector. Run 'a365 copilot agents' to inspect available selectors", query)
 	}
 	if !agent.SharedSelector {
 		return nil
@@ -353,7 +353,7 @@ func validateResolvedAgent(query string, agent agentInfo, catalog []agentInfo) e
 
 	shared := sharedSelectorAgents(catalog, agent.Selector)
 	return fmt.Errorf(
-		"Copilot agent %q resolves to shared selector %q, which is used by %d agents (%s). Individual targeting is not available for this selector; run 'a365 copilot agents' to inspect available selectors",
+		"copilot agent %q resolves to shared selector %q, which is used by %d agents (%s). Individual targeting is not available for this selector; run 'a365 copilot agents' to inspect available selectors",
 		query,
 		agent.Selector,
 		len(shared),
@@ -363,7 +363,7 @@ func validateResolvedAgent(query string, agent agentInfo, catalog []agentInfo) e
 
 func ambiguousAgentError(query string, matches []agentInfo) error {
 	return fmt.Errorf(
-		"Copilot agent %q is ambiguous; matches: %s. Use an exact name or selector, or run 'a365 copilot agents' to list available selectors",
+		"copilot agent %q is ambiguous; matches: %s. Use an exact name or selector, or run 'a365 copilot agents' to list available selectors",
 		query,
 		joinAgentChoices(matches, 6),
 	)
