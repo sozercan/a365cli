@@ -95,3 +95,42 @@ func TestSPLAddColumnCmd_DryRun(t *testing.T) {
 		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
 	}
 }
+
+func TestSPLUpdateItemCmd_DryRunValidatesActualArgs(t *testing.T) {
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "updateListItem",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"siteId": map[string]any{"type": "string"},
+					"listId": map[string]any{"type": "string"},
+					"itemId": map[string]any{"type": "string"},
+					"fields": map[string]any{"type": "object"},
+				},
+				"required": []any{"siteId", "listId", "itemId", "fields"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
+	ctx.DryRun = true
+
+	cmd := &SPLUpdateItemCmd{
+		SiteID: "site-001",
+		ListID: "list-001",
+		ItemID: "item-001",
+		Fields: `{"Priority":"High"}`,
+	}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok || val["valid"] != true {
+		t.Fatalf("expected valid dry-run output, got %v", result["validation"])
+	}
+}

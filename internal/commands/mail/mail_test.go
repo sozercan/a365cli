@@ -188,3 +188,35 @@ func TestMailUploadCmd_LargeDryRunUsesLargeToolSchema(t *testing.T) {
 		t.Fatalf("expected valid dry-run output, got %v", result["validation"])
 	}
 }
+
+func TestMailUpdateCmd_DryRunValidatesActualArgs(t *testing.T) {
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "UpdateMessage",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"id":         map[string]any{"type": "string"},
+					"importance": map[string]any{"type": "string"},
+				},
+				"required": []any{"id", "importance"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
+	ctx.DryRun = true
+
+	cmd := &MailUpdateCmd{ID: "msg-001", Importance: "High"}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok || val["valid"] != true {
+		t.Fatalf("expected valid dry-run output, got %v", result["validation"])
+	}
+}

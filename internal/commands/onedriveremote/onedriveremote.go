@@ -176,6 +176,8 @@ type ODRMkdirCmd struct {
 }
 
 func (c *ODRMkdirCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"folderName": c.FolderName}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(odrEndpoint(), "createFolderInMyOnedrive",
 			fmt.Sprintf("create folder %q", c.FolderName),
@@ -183,6 +185,7 @@ func (c *ODRMkdirCmd) Run(ctx *commands.Context) error {
 				"action":     "onedrive-remote.mkdir",
 				"folderName": c.FolderName,
 			},
+			args,
 		)
 	}
 
@@ -191,9 +194,7 @@ func (c *ODRMkdirCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "createFolderInMyOnedrive", map[string]any{
-		"folderName": c.FolderName,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "createFolderInMyOnedrive", args)
 	if err != nil {
 		return fmt.Errorf("create folder: %w", err)
 	}
@@ -214,6 +215,11 @@ type ODRWriteCmd struct {
 }
 
 func (c *ODRWriteCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"filename":    c.Filename,
+		"contentText": c.ContentText,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(odrEndpoint(), "createSmallTextFileInMyOnedrive",
 			fmt.Sprintf("create file %q", c.Filename),
@@ -222,6 +228,7 @@ func (c *ODRWriteCmd) Run(ctx *commands.Context) error {
 				"filename":    c.Filename,
 				"contentText": c.ContentText,
 			},
+			args,
 		)
 	}
 
@@ -230,10 +237,7 @@ func (c *ODRWriteCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "createSmallTextFileInMyOnedrive", map[string]any{
-		"filename":    c.Filename,
-		"contentText": c.ContentText,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "createSmallTextFileInMyOnedrive", args)
 	if err != nil {
 		return fmt.Errorf("create file: %w", err)
 	}
@@ -255,6 +259,12 @@ type ODRRenameCmd struct {
 }
 
 func (c *ODRRenameCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"fileOrFolderId":      c.FileOrFolderID,
+		"newFileOrFolderName": c.NewFileOrFolderName,
+		"etag":                c.Etag,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(odrEndpoint(), "renameFileOrFolderInMyOnedrive",
 			fmt.Sprintf("rename %s to %q", c.FileOrFolderID, c.NewFileOrFolderName),
@@ -262,8 +272,9 @@ func (c *ODRRenameCmd) Run(ctx *commands.Context) error {
 				"action":              "onedrive-remote.rename",
 				"fileOrFolderId":      c.FileOrFolderID,
 				"newFileOrFolderName": c.NewFileOrFolderName,
-				"etag":               c.Etag,
+				"etag":                c.Etag,
 			},
+			args,
 		)
 	}
 
@@ -272,11 +283,7 @@ func (c *ODRRenameCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "renameFileOrFolderInMyOnedrive", map[string]any{
-		"fileOrFolderId":      c.FileOrFolderID,
-		"newFileOrFolderName": c.NewFileOrFolderName,
-		"etag":                c.Etag,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "renameFileOrFolderInMyOnedrive", args)
 	if err != nil {
 		return fmt.Errorf("rename: %w", err)
 	}
@@ -298,6 +305,12 @@ type ODRMvCmd struct {
 }
 
 func (c *ODRMvCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"fileId":            c.FileID,
+		"newParentFolderId": c.NewParentFolderID,
+		"etag":              c.Etag,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(odrEndpoint(), "moveSmallFileInMyOnedrive",
 			fmt.Sprintf("move file %s to folder %s", c.FileID, c.NewParentFolderID),
@@ -305,8 +318,9 @@ func (c *ODRMvCmd) Run(ctx *commands.Context) error {
 				"action":            "onedrive-remote.mv",
 				"fileId":            c.FileID,
 				"newParentFolderId": c.NewParentFolderID,
-				"etag":             c.Etag,
+				"etag":              c.Etag,
 			},
+			args,
 		)
 	}
 
@@ -315,11 +329,7 @@ func (c *ODRMvCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "moveSmallFileInMyOnedrive", map[string]any{
-		"fileId":            c.FileID,
-		"newParentFolderId": c.NewParentFolderID,
-		"etag":              c.Etag,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "moveSmallFileInMyOnedrive", args)
 	if err != nil {
 		return fmt.Errorf("move file: %w", err)
 	}
@@ -340,6 +350,11 @@ type ODRRmCmd struct {
 }
 
 func (c *ODRRmCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"fileOrFolderId": c.FileOrFolderID,
+		"etag":           c.Etag,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(odrEndpoint(), "deleteFileOrFolderInMyOnedrive",
 			fmt.Sprintf("delete %s", c.FileOrFolderID),
@@ -348,6 +363,7 @@ func (c *ODRRmCmd) Run(ctx *commands.Context) error {
 				"fileOrFolderId": c.FileOrFolderID,
 				"etag":           c.Etag,
 			},
+			args,
 		)
 	}
 
@@ -360,10 +376,7 @@ func (c *ODRRmCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "deleteFileOrFolderInMyOnedrive", map[string]any{
-		"fileOrFolderId": c.FileOrFolderID,
-		"etag":           c.Etag,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "deleteFileOrFolderInMyOnedrive", args)
 	if err != nil {
 		return fmt.Errorf("delete: %w", err)
 	}
@@ -385,6 +398,12 @@ type ODRShareCmd struct {
 }
 
 func (c *ODRShareCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"fileOrFolderId":  c.FileOrFolderID,
+		"recipientEmails": c.RecipientEmails,
+		"roles":           c.Roles,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(odrEndpoint(), "shareFileOrFolderInMyOnedrive",
 			fmt.Sprintf("share %s with %v", c.FileOrFolderID, c.RecipientEmails),
@@ -394,6 +413,7 @@ func (c *ODRShareCmd) Run(ctx *commands.Context) error {
 				"recipientEmails": c.RecipientEmails,
 				"roles":           c.Roles,
 			},
+			args,
 		)
 	}
 
@@ -402,11 +422,7 @@ func (c *ODRShareCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "shareFileOrFolderInMyOnedrive", map[string]any{
-		"fileOrFolderId":  c.FileOrFolderID,
-		"recipientEmails": c.RecipientEmails,
-		"roles":           c.Roles,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "shareFileOrFolderInMyOnedrive", args)
 	if err != nil {
 		return fmt.Errorf("share: %w", err)
 	}
@@ -427,6 +443,11 @@ type ODRLabelCmd struct {
 }
 
 func (c *ODRLabelCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"fileId":             c.FileID,
+		"sensitivityLabelId": c.SensitivityLabelID,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(odrEndpoint(), "setSensitivityLabelOnFileInMyOnedrive",
 			fmt.Sprintf("set sensitivity label %s on file %s", c.SensitivityLabelID, c.FileID),
@@ -435,6 +456,7 @@ func (c *ODRLabelCmd) Run(ctx *commands.Context) error {
 				"fileId":             c.FileID,
 				"sensitivityLabelId": c.SensitivityLabelID,
 			},
+			args,
 		)
 	}
 
@@ -443,10 +465,7 @@ func (c *ODRLabelCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "setSensitivityLabelOnFileInMyOnedrive", map[string]any{
-		"fileId":             c.FileID,
-		"sensitivityLabelId": c.SensitivityLabelID,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "setSensitivityLabelOnFileInMyOnedrive", args)
 	if err != nil {
 		return fmt.Errorf("set label: %w", err)
 	}

@@ -142,3 +142,35 @@ func TestCalAcceptCmd_DryRun(t *testing.T) {
 		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
 	}
 }
+
+func TestCalUpdateCmd_DryRunValidatesActualArgs(t *testing.T) {
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "UpdateEvent",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"eventId": map[string]any{"type": "string"},
+					"subject": map[string]any{"type": "string"},
+				},
+				"required": []any{"eventId", "subject"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
+	ctx.DryRun = true
+
+	cmd := &CalUpdateCmd{ID: "evt-001", Subject: "Project Sync"}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok || val["valid"] != true {
+		t.Fatalf("expected valid dry-run output, got %v", result["validation"])
+	}
+}

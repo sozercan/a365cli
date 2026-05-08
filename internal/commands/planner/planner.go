@@ -10,9 +10,9 @@ import (
 
 // PlannerCmd groups all Planner subcommands.
 type PlannerCmd struct {
-	Plans  PlansCmd  `cmd:"" help:"Planner plans"`
-	Tasks  TasksCmd  `cmd:"" help:"Planner tasks"`
-	Goals  GoalsCmd  `cmd:"" help:"Planner goals"`
+	Plans PlansCmd `cmd:"" help:"Planner plans"`
+	Tasks TasksCmd `cmd:"" help:"Planner tasks"`
+	Goals GoalsCmd `cmd:"" help:"Planner goals"`
 }
 
 func plannerEndpoint() string {
@@ -84,15 +84,18 @@ type PlansCreateCmd struct {
 }
 
 func (c *PlansCreateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"title": c.Title}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(plannerEndpoint(), "CreatePlan", fmt.Sprintf("create plan %q", c.Title),
-			map[string]any{"action": "planner.create-plan", "title": c.Title})
+			map[string]any{"action": "planner.create-plan", "title": c.Title},
+			args)
 	}
 	client := ctx.NewMCPClient(plannerEndpoint())
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
-	resp, err := client.CallTool(ctx.Ctx, "CreatePlan", map[string]any{"title": c.Title})
+	resp, err := client.CallTool(ctx.Ctx, "CreatePlan", args)
 	if err != nil {
 		return fmt.Errorf("create plan: %w", err)
 	}
@@ -109,17 +112,19 @@ type PlansUpdateCmd struct {
 }
 
 func (c *PlansUpdateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"planId": c.ID}
+	if c.Title != "" {
+		args["title"] = c.Title
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(plannerEndpoint(), "UpdatePlan", fmt.Sprintf("update plan %s", c.ID),
-			map[string]any{"action": "planner.update-plan", "planId": c.ID})
+			map[string]any{"action": "planner.update-plan", "planId": c.ID},
+			args)
 	}
 	client := ctx.NewMCPClient(plannerEndpoint())
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
-	}
-	args := map[string]any{"planId": c.ID}
-	if c.Title != "" {
-		args["title"] = c.Title
 	}
 	resp, err := client.CallTool(ctx.Ctx, "UpdatePlan", args)
 	if err != nil {
@@ -198,17 +203,18 @@ type TasksCreateCmd struct {
 }
 
 func (c *TasksCreateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"planId": c.PlanID, "title": c.Title}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(plannerEndpoint(), "CreateTask", fmt.Sprintf("create task %q in plan %s", c.Title, c.PlanID),
-			map[string]any{"action": "planner.create-task", "planId": c.PlanID, "title": c.Title})
+			map[string]any{"action": "planner.create-task", "planId": c.PlanID, "title": c.Title},
+			args)
 	}
 	client := ctx.NewMCPClient(plannerEndpoint())
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
-	resp, err := client.CallTool(ctx.Ctx, "CreateTask", map[string]any{
-		"planId": c.PlanID, "title": c.Title,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "CreateTask", args)
 	if err != nil {
 		return fmt.Errorf("create task: %w", err)
 	}
@@ -225,17 +231,19 @@ type TasksUpdateCmd struct {
 }
 
 func (c *TasksUpdateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"taskId": c.ID}
+	if c.Title != "" {
+		args["title"] = c.Title
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(plannerEndpoint(), "UpdateTask", fmt.Sprintf("update task %s", c.ID),
-			map[string]any{"action": "planner.update-task", "taskId": c.ID})
+			map[string]any{"action": "planner.update-task", "taskId": c.ID},
+			args)
 	}
 	client := ctx.NewMCPClient(plannerEndpoint())
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
-	}
-	args := map[string]any{"taskId": c.ID}
-	if c.Title != "" {
-		args["title"] = c.Title
 	}
 	resp, err := client.CallTool(ctx.Ctx, "UpdateTask", args)
 	if err != nil {
@@ -303,17 +311,18 @@ type GoalsCreateCmd struct {
 }
 
 func (c *GoalsCreateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"planId": c.PlanID, "title": c.Title}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(plannerEndpoint(), "CreateGoal", fmt.Sprintf("create goal %q in plan %s", c.Title, c.PlanID),
-			map[string]any{"action": "planner.create-goal", "planId": c.PlanID, "title": c.Title})
+			map[string]any{"action": "planner.create-goal", "planId": c.PlanID, "title": c.Title},
+			args)
 	}
 	client := ctx.NewMCPClient(plannerEndpoint())
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
-	resp, err := client.CallTool(ctx.Ctx, "CreateGoal", map[string]any{
-		"planId": c.PlanID, "title": c.Title,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "CreateGoal", args)
 	if err != nil {
 		return fmt.Errorf("create goal: %w", err)
 	}
@@ -330,17 +339,19 @@ type GoalsUpdateCmd struct {
 }
 
 func (c *GoalsUpdateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"goalId": c.ID}
+	if c.Title != "" {
+		args["title"] = c.Title
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(plannerEndpoint(), "UpdateGoal", fmt.Sprintf("update goal %s", c.ID),
-			map[string]any{"action": "planner.update-goal", "goalId": c.ID})
+			map[string]any{"action": "planner.update-goal", "goalId": c.ID},
+			args)
 	}
 	client := ctx.NewMCPClient(plannerEndpoint())
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
-	}
-	args := map[string]any{"goalId": c.ID}
-	if c.Title != "" {
-		args["title"] = c.Title
 	}
 	resp, err := client.CallTool(ctx.Ctx, "UpdateGoal", args)
 	if err != nil {

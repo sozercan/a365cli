@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/sozercan/a365cli/internal/commands"
+	cmdexec "github.com/sozercan/a365cli/internal/commands/exec"
 	"github.com/sozercan/a365cli/internal/config"
 	"github.com/sozercan/a365cli/internal/output"
 )
@@ -285,6 +286,12 @@ type SPMkdirCmd struct {
 }
 
 func (c *SPMkdirCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"driveId":    c.DriveID,
+		"parentPath": c.ParentPath,
+		"folderName": c.FolderName,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(spEndpoint(), "createFolder",
 			fmt.Sprintf("create folder %q in %s", c.FolderName, c.ParentPath),
@@ -294,6 +301,7 @@ func (c *SPMkdirCmd) Run(ctx *commands.Context) error {
 				"parentPath": c.ParentPath,
 				"folderName": c.FolderName,
 			},
+			args,
 		)
 	}
 
@@ -302,11 +310,7 @@ func (c *SPMkdirCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "createFolder", map[string]any{
-		"driveId":    c.DriveID,
-		"parentPath": c.ParentPath,
-		"folderName": c.FolderName,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "createFolder", args)
 	if err != nil {
 		return fmt.Errorf("create folder: %w", err)
 	}
@@ -330,24 +334,7 @@ type SPWriteCmd struct {
 }
 
 func (c *SPWriteCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(spEndpoint(), "createSmallTextFile",
-			fmt.Sprintf("create file %q in %s", c.FileName, c.FolderPath),
-			map[string]any{
-				"action":     "sharepoint.write",
-				"driveId":    c.DriveID,
-				"folderPath": c.FolderPath,
-				"fileName":   c.FileName,
-			},
-		)
-	}
-
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	var toolName string
+	toolName := "createSmallTextFile"
 	args := map[string]any{
 		"driveId":    c.DriveID,
 		"folderPath": c.FolderPath,
@@ -358,20 +345,23 @@ func (c *SPWriteCmd) Run(ctx *commands.Context) error {
 		toolName = "createSmallBinaryFile"
 		args["contentBase64"] = c.ContentBase64
 	} else {
-		toolName = "createSmallTextFile"
 		args["content"] = c.Content
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, toolName, args)
-	if err != nil {
-		return fmt.Errorf("create file: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
-	if err != nil {
-		return err
-	}
-	return ctx.Output.PrintMutation("File created", data)
+	return cmdexec.New(ctx).Mutate(cmdexec.OperationPlan{
+		Service: "sharepoint",
+		Tool:    toolName,
+		Args:    args,
+		Action:  fmt.Sprintf("create file %q in %s", c.FileName, c.FolderPath),
+		Display: map[string]any{
+			"action":     "sharepoint.write",
+			"driveId":    c.DriveID,
+			"folderPath": c.FolderPath,
+			"fileName":   c.FileName,
+		},
+		ErrPrefix: "create file",
+		Output:    cmdexec.Mutation("File created"),
+	})
 }
 
 // --- uploadFileFromUrl ---
@@ -385,6 +375,13 @@ type SPUploadCmd struct {
 }
 
 func (c *SPUploadCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"sourceUrl":             c.SourceURL,
+		"destinationDriveId":    c.DestinationDriveID,
+		"destinationFolderPath": c.DestinationFolderPath,
+		"fileName":              c.FileName,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(spEndpoint(), "uploadFileFromUrl",
 			fmt.Sprintf("upload %q from %s to %s", c.FileName, c.SourceURL, c.DestinationFolderPath),
@@ -395,6 +392,7 @@ func (c *SPUploadCmd) Run(ctx *commands.Context) error {
 				"destinationFolderPath": c.DestinationFolderPath,
 				"fileName":              c.FileName,
 			},
+			args,
 		)
 	}
 
@@ -403,12 +401,7 @@ func (c *SPUploadCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "uploadFileFromUrl", map[string]any{
-		"sourceUrl":             c.SourceURL,
-		"destinationDriveId":    c.DestinationDriveID,
-		"destinationFolderPath": c.DestinationFolderPath,
-		"fileName":              c.FileName,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "uploadFileFromUrl", args)
 	if err != nil {
 		return fmt.Errorf("upload file: %w", err)
 	}
@@ -430,35 +423,6 @@ type SPDeleteCmd struct {
 }
 
 func (c *SPDeleteCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		target := c.ItemPath
-		if target == "" {
-			target = c.ItemID
-		}
-		return ctx.ValidateDryRun(spEndpoint(), "deleteFileOrFolder",
-			fmt.Sprintf("delete %s from drive %s", target, c.DriveID),
-			map[string]any{
-				"action":   "sharepoint.rm",
-				"driveId":  c.DriveID,
-				"itemPath": c.ItemPath,
-				"itemId":   c.ItemID,
-			},
-		)
-	}
-
-	target := c.ItemPath
-	if target == "" {
-		target = c.ItemID
-	}
-	if err := ctx.Confirm(fmt.Sprintf("delete %s from drive %s", target, c.DriveID)); err != nil {
-		return err
-	}
-
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{
 		"driveId": c.DriveID,
 	}
@@ -467,6 +431,32 @@ func (c *SPDeleteCmd) Run(ctx *commands.Context) error {
 	}
 	if c.ItemID != "" {
 		args["itemId"] = c.ItemID
+	}
+	target := c.ItemPath
+	if target == "" {
+		target = c.ItemID
+	}
+
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(spEndpoint(), "deleteFileOrFolder",
+			fmt.Sprintf("delete %s from drive %s", target, c.DriveID),
+			map[string]any{
+				"action":   "sharepoint.rm",
+				"driveId":  c.DriveID,
+				"itemPath": c.ItemPath,
+				"itemId":   c.ItemID,
+			},
+			args,
+		)
+	}
+
+	if err := ctx.Confirm(fmt.Sprintf("delete %s from drive %s", target, c.DriveID)); err != nil {
+		return err
+	}
+
+	client := ctx.NewMCPClient(spEndpoint())
+	if err := client.Initialize(ctx.Ctx); err != nil {
+		return fmt.Errorf("initialize: %w", err)
 	}
 
 	resp, err := client.CallTool(ctx.Ctx, "deleteFileOrFolder", args)
@@ -492,6 +482,13 @@ type SPMoveCmd struct {
 }
 
 func (c *SPMoveCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"sourceDriveId":         c.SourceDriveID,
+		"sourceItemPath":        c.SourceItemPath,
+		"destinationDriveId":    c.DestinationDriveID,
+		"destinationFolderPath": c.DestinationFolderPath,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(spEndpoint(), "moveFileOrFolder",
 			fmt.Sprintf("move %s to %s", c.SourceItemPath, c.DestinationFolderPath),
@@ -502,6 +499,7 @@ func (c *SPMoveCmd) Run(ctx *commands.Context) error {
 				"destinationDriveId":    c.DestinationDriveID,
 				"destinationFolderPath": c.DestinationFolderPath,
 			},
+			args,
 		)
 	}
 
@@ -510,12 +508,7 @@ func (c *SPMoveCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "moveFileOrFolder", map[string]any{
-		"sourceDriveId":         c.SourceDriveID,
-		"sourceItemPath":        c.SourceItemPath,
-		"destinationDriveId":    c.DestinationDriveID,
-		"destinationFolderPath": c.DestinationFolderPath,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "moveFileOrFolder", args)
 	if err != nil {
 		return fmt.Errorf("move: %w", err)
 	}
@@ -538,6 +531,13 @@ type SPCopyCmd struct {
 }
 
 func (c *SPCopyCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"sourceDriveId":         c.SourceDriveID,
+		"sourceItemPath":        c.SourceItemPath,
+		"destinationDriveId":    c.DestinationDriveID,
+		"destinationFolderPath": c.DestinationFolderPath,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(spEndpoint(), "copyFileOrFolder",
 			fmt.Sprintf("copy %s to %s", c.SourceItemPath, c.DestinationFolderPath),
@@ -548,6 +548,7 @@ func (c *SPCopyCmd) Run(ctx *commands.Context) error {
 				"destinationDriveId":    c.DestinationDriveID,
 				"destinationFolderPath": c.DestinationFolderPath,
 			},
+			args,
 		)
 	}
 
@@ -556,12 +557,7 @@ func (c *SPCopyCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "copyFileOrFolder", map[string]any{
-		"sourceDriveId":         c.SourceDriveID,
-		"sourceItemPath":        c.SourceItemPath,
-		"destinationDriveId":    c.DestinationDriveID,
-		"destinationFolderPath": c.DestinationFolderPath,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "copyFileOrFolder", args)
 	if err != nil {
 		return fmt.Errorf("copy: %w", err)
 	}
@@ -583,6 +579,12 @@ type SPRenameCmd struct {
 }
 
 func (c *SPRenameCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"driveId":  c.DriveID,
+		"itemPath": c.ItemPath,
+		"newName":  c.NewName,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(spEndpoint(), "renameFileOrFolder",
 			fmt.Sprintf("rename %s to %q", c.ItemPath, c.NewName),
@@ -592,6 +594,7 @@ func (c *SPRenameCmd) Run(ctx *commands.Context) error {
 				"itemPath": c.ItemPath,
 				"newName":  c.NewName,
 			},
+			args,
 		)
 	}
 
@@ -600,11 +603,7 @@ func (c *SPRenameCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "renameFileOrFolder", map[string]any{
-		"driveId":  c.DriveID,
-		"itemPath": c.ItemPath,
-		"newName":  c.NewName,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "renameFileOrFolder", args)
 	if err != nil {
 		return fmt.Errorf("rename: %w", err)
 	}
@@ -627,6 +626,13 @@ type SPShareCmd struct {
 }
 
 func (c *SPShareCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"driveId":  c.DriveID,
+		"itemPath": c.ItemPath,
+		"type":     c.Type,
+		"scope":    c.Scope,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(spEndpoint(), "shareFileOrFolder",
 			fmt.Sprintf("create %s/%s sharing link for %s", c.Type, c.Scope, c.ItemPath),
@@ -637,6 +643,7 @@ func (c *SPShareCmd) Run(ctx *commands.Context) error {
 				"type":     c.Type,
 				"scope":    c.Scope,
 			},
+			args,
 		)
 	}
 
@@ -645,12 +652,7 @@ func (c *SPShareCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "shareFileOrFolder", map[string]any{
-		"driveId":  c.DriveID,
-		"itemPath": c.ItemPath,
-		"type":     c.Type,
-		"scope":    c.Scope,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "shareFileOrFolder", args)
 	if err != nil {
 		return fmt.Errorf("share: %w", err)
 	}
@@ -672,6 +674,12 @@ type SPLabelCmd struct {
 }
 
 func (c *SPLabelCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"driveId": c.DriveID,
+		"itemId":  c.ItemID,
+		"labelId": c.LabelID,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(spEndpoint(), "setSensitivityLabelOnFile",
 			fmt.Sprintf("set sensitivity label %s on item %s", c.LabelID, c.ItemID),
@@ -681,6 +689,7 @@ func (c *SPLabelCmd) Run(ctx *commands.Context) error {
 				"itemId":  c.ItemID,
 				"labelId": c.LabelID,
 			},
+			args,
 		)
 	}
 
@@ -689,11 +698,7 @@ func (c *SPLabelCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "setSensitivityLabelOnFile", map[string]any{
-		"driveId": c.DriveID,
-		"itemId":  c.ItemID,
-		"labelId": c.LabelID,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "setSensitivityLabelOnFile", args)
 	if err != nil {
 		return fmt.Errorf("set label: %w", err)
 	}

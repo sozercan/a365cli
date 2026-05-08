@@ -4,25 +4,26 @@ import (
 	"fmt"
 
 	"github.com/sozercan/a365cli/internal/commands"
+	cmdexec "github.com/sozercan/a365cli/internal/commands/exec"
 	"github.com/sozercan/a365cli/internal/config"
 	"github.com/sozercan/a365cli/internal/output"
 )
 
 // CalendarCmd groups all Calendar subcommands.
 type CalendarCmd struct {
-	List       CalListCmd       `cmd:"" help:"List upcoming events"`
-	View       CalViewCmd       `cmd:"" help:"List events in a date range"`
-	Create     CalCreateCmd     `cmd:"" help:"Create a calendar event"`
-	Update     CalUpdateCmd     `cmd:"" help:"Update a calendar event"`
-	Delete     CalDeleteCmd     `cmd:"" help:"Delete a calendar event"`
-	Accept     CalAcceptCmd     `cmd:"" help:"Accept a meeting invite"`
-	Tentative  CalTentativeCmd  `cmd:"" help:"Tentatively accept a meeting invite"`
-	Decline    CalDeclineCmd    `cmd:"" help:"Decline a meeting invite"`
-	Cancel     CalCancelCmd     `cmd:"" help:"Cancel a meeting you organized"`
-	Forward    CalForwardCmd    `cmd:"" help:"Forward a meeting invite"`
-	FreeBusy   CalFreeBusyCmd   `cmd:"" name:"free-busy" help:"Find available meeting times"`
-	TimeZone   CalTimeZoneCmd   `cmd:"" name:"timezone" help:"Get user date/time zone settings"`
-	Rooms      CalRoomsCmd      `cmd:"" help:"List available rooms"`
+	List      CalListCmd      `cmd:"" help:"List upcoming events"`
+	View      CalViewCmd      `cmd:"" help:"List events in a date range"`
+	Create    CalCreateCmd    `cmd:"" help:"Create a calendar event"`
+	Update    CalUpdateCmd    `cmd:"" help:"Update a calendar event"`
+	Delete    CalDeleteCmd    `cmd:"" help:"Delete a calendar event"`
+	Accept    CalAcceptCmd    `cmd:"" help:"Accept a meeting invite"`
+	Tentative CalTentativeCmd `cmd:"" help:"Tentatively accept a meeting invite"`
+	Decline   CalDeclineCmd   `cmd:"" help:"Decline a meeting invite"`
+	Cancel    CalCancelCmd    `cmd:"" help:"Cancel a meeting you organized"`
+	Forward   CalForwardCmd   `cmd:"" help:"Forward a meeting invite"`
+	FreeBusy  CalFreeBusyCmd  `cmd:"" name:"free-busy" help:"Find available meeting times"`
+	TimeZone  CalTimeZoneCmd  `cmd:"" name:"timezone" help:"Get user date/time zone settings"`
+	Rooms     CalRoomsCmd     `cmd:"" help:"List available rooms"`
 }
 
 func calEndpoint() string {
@@ -161,26 +162,14 @@ func (c *CalCreateCmd) Run(ctx *commands.Context) error {
 
 // CalUpdateCmd updates a calendar event.
 type CalUpdateCmd struct {
-	ID      string   `arg:"" help:"Event ID"`
-	Subject string   `help:"New subject" optional:""`
-	Start   string   `help:"New start time" optional:""`
-	End     string   `help:"New end time" optional:""`
-	Body    string   `help:"New body" optional:""`
+	ID      string `arg:"" help:"Event ID"`
+	Subject string `help:"New subject" optional:""`
+	Start   string `help:"New start time" optional:""`
+	End     string `help:"New end time" optional:""`
+	Body    string `help:"New body" optional:""`
 }
 
 func (c *CalUpdateCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(calEndpoint(), "UpdateEvent",
-			fmt.Sprintf("update event %s", c.ID),
-			map[string]any{"action": "calendar.update", "eventId": c.ID},
-		)
-	}
-
-	client := ctx.NewMCPClient(calEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{"eventId": c.ID}
 	if c.Subject != "" {
 		args["subject"] = c.Subject
@@ -195,16 +184,15 @@ func (c *CalUpdateCmd) Run(ctx *commands.Context) error {
 		args["body"] = c.Body
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "UpdateEvent", args)
-	if err != nil {
-		return fmt.Errorf("update event: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
-	if err != nil {
-		return err
-	}
-	return ctx.Output.PrintMutation("Event updated", data)
+	return cmdexec.New(ctx).Mutate(cmdexec.OperationPlan{
+		Service:   "calendar",
+		Tool:      "UpdateEvent",
+		Args:      args,
+		Action:    fmt.Sprintf("update event %s", c.ID),
+		Display:   map[string]any{"action": "calendar.update", "eventId": c.ID},
+		ErrPrefix: "update event",
+		Output:    cmdexec.Mutation("Event updated"),
+	})
 }
 
 // CalDeleteCmd deletes a calendar event.
@@ -213,9 +201,13 @@ type CalDeleteCmd struct {
 }
 
 func (c *CalDeleteCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"eventId": c.ID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(calEndpoint(), "DeleteEventById", fmt.Sprintf("delete event %s", c.ID),
-			map[string]any{"action": "calendar.delete", "eventId": c.ID})
+			map[string]any{"action": "calendar.delete", "eventId": c.ID},
+			args,
+		)
 	}
 	if err := ctx.Confirm(fmt.Sprintf("delete event %s", c.ID)); err != nil {
 		return err
@@ -226,7 +218,7 @@ func (c *CalDeleteCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "DeleteEventById", map[string]any{"eventId": c.ID})
+	resp, err := client.CallTool(ctx.Ctx, "DeleteEventById", args)
 	if err != nil {
 		return fmt.Errorf("delete event: %w", err)
 	}
@@ -244,16 +236,20 @@ type CalAcceptCmd struct {
 }
 
 func (c *CalAcceptCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"eventId": c.ID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(calEndpoint(), "AcceptEvent", fmt.Sprintf("accept event %s", c.ID),
-			map[string]any{"action": "calendar.accept", "eventId": c.ID})
+			map[string]any{"action": "calendar.accept", "eventId": c.ID},
+			args,
+		)
 	}
 
 	client := ctx.NewMCPClient(calEndpoint())
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
-	resp, err := client.CallTool(ctx.Ctx, "AcceptEvent", map[string]any{"eventId": c.ID})
+	resp, err := client.CallTool(ctx.Ctx, "AcceptEvent", args)
 	if err != nil {
 		return fmt.Errorf("accept: %w", err)
 	}
@@ -270,16 +266,20 @@ type CalTentativeCmd struct {
 }
 
 func (c *CalTentativeCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"eventId": c.ID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(calEndpoint(), "TentativelyAcceptEvent", fmt.Sprintf("tentatively accept event %s", c.ID),
-			map[string]any{"action": "calendar.tentative", "eventId": c.ID})
+			map[string]any{"action": "calendar.tentative", "eventId": c.ID},
+			args,
+		)
 	}
 
 	client := ctx.NewMCPClient(calEndpoint())
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
-	resp, err := client.CallTool(ctx.Ctx, "TentativelyAcceptEvent", map[string]any{"eventId": c.ID})
+	resp, err := client.CallTool(ctx.Ctx, "TentativelyAcceptEvent", args)
 	if err != nil {
 		return fmt.Errorf("tentative accept: %w", err)
 	}
@@ -296,16 +296,20 @@ type CalDeclineCmd struct {
 }
 
 func (c *CalDeclineCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"eventId": c.ID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(calEndpoint(), "DeclineEvent", fmt.Sprintf("decline event %s", c.ID),
-			map[string]any{"action": "calendar.decline", "eventId": c.ID})
+			map[string]any{"action": "calendar.decline", "eventId": c.ID},
+			args,
+		)
 	}
 
 	client := ctx.NewMCPClient(calEndpoint())
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
-	resp, err := client.CallTool(ctx.Ctx, "DeclineEvent", map[string]any{"eventId": c.ID})
+	resp, err := client.CallTool(ctx.Ctx, "DeclineEvent", args)
 	if err != nil {
 		return fmt.Errorf("decline: %w", err)
 	}
@@ -322,9 +326,13 @@ type CalCancelCmd struct {
 }
 
 func (c *CalCancelCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"eventId": c.ID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(calEndpoint(), "CancelEvent", fmt.Sprintf("cancel event %s", c.ID),
-			map[string]any{"action": "calendar.cancel", "eventId": c.ID})
+			map[string]any{"action": "calendar.cancel", "eventId": c.ID},
+			args,
+		)
 	}
 	if err := ctx.Confirm(fmt.Sprintf("cancel event %s", c.ID)); err != nil {
 		return err
@@ -334,7 +342,7 @@ func (c *CalCancelCmd) Run(ctx *commands.Context) error {
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
-	resp, err := client.CallTool(ctx.Ctx, "CancelEvent", map[string]any{"eventId": c.ID})
+	resp, err := client.CallTool(ctx.Ctx, "CancelEvent", args)
 	if err != nil {
 		return fmt.Errorf("cancel: %w", err)
 	}

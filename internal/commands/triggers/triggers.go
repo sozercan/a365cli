@@ -115,22 +115,23 @@ type TriggersCreateCmd struct {
 }
 
 func (c *TriggersCreateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"validationToken": c.ValidationToken,
+		"name":            c.Name,
+		"eventType":       c.EventType,
+		"logic":           c.Logic,
+		"conditions":      c.Conditions,
+		"instructions":    c.Instructions,
+	}
+
 	if ctx.DryRun {
-		mcpArgs := map[string]any{
-			"validationToken": c.ValidationToken,
-			"name":            c.Name,
-			"eventType":       c.EventType,
-			"logic":           c.Logic,
-			"conditions":      c.Conditions,
-			"instructions":    c.Instructions,
-		}
 		return ctx.ValidateDryRun(triggersEndpoint(), "create_trigger_definition", fmt.Sprintf("create trigger %q", c.Name),
 			map[string]any{
 				"action":    "triggers.create",
 				"name":      c.Name,
 				"eventType": c.EventType,
 			},
-			mcpArgs,
+			args,
 		)
 	}
 
@@ -139,14 +140,7 @@ func (c *TriggersCreateCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "create_trigger_definition", map[string]any{
-		"validationToken": c.ValidationToken,
-		"name":            c.Name,
-		"eventType":       c.EventType,
-		"logic":           c.Logic,
-		"conditions":      c.Conditions,
-		"instructions":    c.Instructions,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "create_trigger_definition", args)
 	if err != nil {
 		return fmt.Errorf("create trigger: %w", err)
 	}
@@ -217,17 +211,18 @@ type TriggersUpdateCmd struct {
 }
 
 func (c *TriggersUpdateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"validationToken": c.ValidationToken,
+		"id":              c.ID,
+	}
+
 	if ctx.DryRun {
-		mcpArgs := map[string]any{
-			"validationToken": c.ValidationToken,
-			"id":              c.ID,
-		}
 		return ctx.ValidateDryRun(triggersEndpoint(), "update_trigger_definition", fmt.Sprintf("update trigger %s", c.ID),
 			map[string]any{
 				"action": "triggers.update",
 				"id":     c.ID,
 			},
-			mcpArgs,
+			args,
 		)
 	}
 
@@ -236,10 +231,7 @@ func (c *TriggersUpdateCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "update_trigger_definition", map[string]any{
-		"validationToken": c.ValidationToken,
-		"id":              c.ID,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "update_trigger_definition", args)
 	if err != nil {
 		return fmt.Errorf("update trigger: %w", err)
 	}
@@ -259,12 +251,18 @@ type TriggersDeleteCmd struct {
 }
 
 func (c *TriggersDeleteCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"id": c.ID,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(triggersEndpoint(), "delete_trigger_definition", fmt.Sprintf("delete trigger %s", c.ID),
 			map[string]any{
 				"action": "triggers.delete",
 				"id":     c.ID,
-			})
+			},
+			args,
+		)
 	}
 
 	if err := ctx.Confirm(fmt.Sprintf("delete trigger %s", c.ID)); err != nil {
@@ -276,9 +274,7 @@ func (c *TriggersDeleteCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "delete_trigger_definition", map[string]any{
-		"id": c.ID,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "delete_trigger_definition", args)
 	if err != nil {
 		return fmt.Errorf("delete trigger: %w", err)
 	}

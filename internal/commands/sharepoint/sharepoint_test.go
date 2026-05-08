@@ -90,3 +90,42 @@ func TestSPRmCmd_NoInput(t *testing.T) {
 		t.Errorf("expected error about --force, got: %v", err)
 	}
 }
+
+func TestSPWriteCmd_DryRunValidatesSelectedBinaryToolAndActualArgs(t *testing.T) {
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "createSmallBinaryFile",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"driveId":       map[string]any{"type": "string"},
+					"folderPath":    map[string]any{"type": "string"},
+					"fileName":      map[string]any{"type": "string"},
+					"contentBase64": map[string]any{"type": "string"},
+				},
+				"required": []any{"driveId", "folderPath", "fileName", "contentBase64"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
+	ctx.DryRun = true
+
+	cmd := &SPWriteCmd{
+		DriveID:       "drive-001",
+		FolderPath:    "/Documents",
+		FileName:      "sample.bin",
+		ContentBase64: "AAE=",
+	}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok || val["valid"] != true {
+		t.Fatalf("expected valid dry-run output, got %v", result["validation"])
+	}
+}

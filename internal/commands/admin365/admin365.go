@@ -15,7 +15,7 @@ func admin365Endpoint() string {
 
 // Admin365Cmd groups all Admin365 subcommands.
 type Admin365Cmd struct {
-	BulkAdd       Admin365BulkAddCmd      `cmd:"" name:"bulk-add" help:"Bulk add users to tenant"`
+	BulkAdd       Admin365BulkAddCmd       `cmd:"" name:"bulk-add" help:"Bulk add users to tenant"`
 	AgentAccess   Admin365AgentAccessCmd   `cmd:"" name:"agent-access" help:"Get agent access settings"`
 	AgentSharing  Admin365AgentSharingCmd  `cmd:"" name:"agent-sharing" help:"Get agent sharing settings"`
 	MsApps        Admin365MsAppsCmd        `cmd:"" name:"ms-apps" help:"Get Microsoft apps install settings"`
@@ -39,6 +39,8 @@ type Admin365BulkAddCmd struct {
 }
 
 func (c *Admin365BulkAddCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"fileContent": c.FileContent}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(admin365Endpoint(), "BulkAddUsers",
 			"bulk add users to tenant",
@@ -46,6 +48,7 @@ func (c *Admin365BulkAddCmd) Run(ctx *commands.Context) error {
 				"action":      "admin365.bulk-add",
 				"fileContent": c.FileContent,
 			},
+			args,
 		)
 	}
 
@@ -54,9 +57,7 @@ func (c *Admin365BulkAddCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "BulkAddUsers", map[string]any{
-		"fileContent": c.FileContent,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "BulkAddUsers", args)
 	if err != nil {
 		return fmt.Errorf("bulk add users: %w", err)
 	}
@@ -191,6 +192,8 @@ type Admin365SetAccessCmd struct {
 }
 
 func (c *Admin365SetAccessCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"accessLevel": c.AccessLevel}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateWhoCanAccessAgentsSettings",
 			fmt.Sprintf("update agent access to %q", c.AccessLevel),
@@ -198,6 +201,7 @@ func (c *Admin365SetAccessCmd) Run(ctx *commands.Context) error {
 				"action":      "admin365.set-access",
 				"accessLevel": c.AccessLevel,
 			},
+			args,
 		)
 	}
 
@@ -206,9 +210,7 @@ func (c *Admin365SetAccessCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "UpdateWhoCanAccessAgentsSettings", map[string]any{
-		"accessLevel": c.AccessLevel,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "UpdateWhoCanAccessAgentsSettings", args)
 	if err != nil {
 		return fmt.Errorf("update agent access: %w", err)
 	}
@@ -228,6 +230,8 @@ type Admin365SetSharingCmd struct {
 }
 
 func (c *Admin365SetSharingCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"accessLevel": c.AccessLevel}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateWhoCanShareAgentsOrgWideSettings",
 			fmt.Sprintf("update agent sharing to %q", c.AccessLevel),
@@ -235,6 +239,7 @@ func (c *Admin365SetSharingCmd) Run(ctx *commands.Context) error {
 				"action":      "admin365.set-sharing",
 				"accessLevel": c.AccessLevel,
 			},
+			args,
 		)
 	}
 
@@ -243,9 +248,7 @@ func (c *Admin365SetSharingCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "UpdateWhoCanShareAgentsOrgWideSettings", map[string]any{
-		"accessLevel": c.AccessLevel,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "UpdateWhoCanShareAgentsOrgWideSettings", args)
 	if err != nil {
 		return fmt.Errorf("update agent sharing: %w", err)
 	}
@@ -265,6 +268,8 @@ type Admin365SetMsAppsCmd struct {
 }
 
 func (c *Admin365SetMsAppsCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"allowed": c.Allowed}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateCanInstallMicrosoftAppsAndAgentsSettings",
 			fmt.Sprintf("update Microsoft apps install to %s", c.Allowed),
@@ -272,6 +277,7 @@ func (c *Admin365SetMsAppsCmd) Run(ctx *commands.Context) error {
 				"action":  "admin365.set-ms-apps",
 				"allowed": c.Allowed,
 			},
+			args,
 		)
 	}
 
@@ -280,9 +286,7 @@ func (c *Admin365SetMsAppsCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "UpdateCanInstallMicrosoftAppsAndAgentsSettings", map[string]any{
-		"allowed": c.Allowed,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "UpdateCanInstallMicrosoftAppsAndAgentsSettings", args)
 	if err != nil {
 		return fmt.Errorf("update Microsoft apps settings: %w", err)
 	}
@@ -302,6 +306,8 @@ type Admin365SetThirdPartyCmd struct {
 }
 
 func (c *Admin365SetThirdPartyCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"allowed": c.Allowed}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateCanInstallThirdPartyAppsAndAgentsSettings",
 			fmt.Sprintf("update third-party apps install to %s", c.Allowed),
@@ -309,6 +315,7 @@ func (c *Admin365SetThirdPartyCmd) Run(ctx *commands.Context) error {
 				"action":  "admin365.set-third-party",
 				"allowed": c.Allowed,
 			},
+			args,
 		)
 	}
 
@@ -317,9 +324,7 @@ func (c *Admin365SetThirdPartyCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "UpdateCanInstallThirdPartyAppsAndAgentsSettings", map[string]any{
-		"allowed": c.Allowed,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "UpdateCanInstallThirdPartyAppsAndAgentsSettings", args)
 	if err != nil {
 		return fmt.Errorf("update third-party apps settings: %w", err)
 	}
@@ -339,6 +344,8 @@ type Admin365SetLobAppsCmd struct {
 }
 
 func (c *Admin365SetLobAppsCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"allowed": c.Allowed}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateCanInstallLOBAppsAndAgentsSettings",
 			fmt.Sprintf("update LOB apps install to %s", c.Allowed),
@@ -346,6 +353,7 @@ func (c *Admin365SetLobAppsCmd) Run(ctx *commands.Context) error {
 				"action":  "admin365.set-lob-apps",
 				"allowed": c.Allowed,
 			},
+			args,
 		)
 	}
 
@@ -354,9 +362,7 @@ func (c *Admin365SetLobAppsCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "UpdateCanInstallLOBAppsAndAgentsSettings", map[string]any{
-		"allowed": c.Allowed,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "UpdateCanInstallLOBAppsAndAgentsSettings", args)
 	if err != nil {
 		return fmt.Errorf("update LOB apps settings: %w", err)
 	}
@@ -422,6 +428,8 @@ type Admin365SetCopilotCmd struct {
 }
 
 func (c *Admin365SetCopilotCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"isEnabled": c.IsEnabled}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateCopilotAdminSettings",
 			fmt.Sprintf("update Copilot admin setting to isEnabled=%s", c.IsEnabled),
@@ -429,6 +437,7 @@ func (c *Admin365SetCopilotCmd) Run(ctx *commands.Context) error {
 				"action":    "admin365.set-copilot",
 				"isEnabled": c.IsEnabled,
 			},
+			args,
 		)
 	}
 
@@ -437,9 +446,7 @@ func (c *Admin365SetCopilotCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "UpdateCopilotAdminSettings", map[string]any{
-		"isEnabled": c.IsEnabled,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "UpdateCopilotAdminSettings", args)
 	if err != nil {
 		return fmt.Errorf("update Copilot admin settings: %w", err)
 	}
