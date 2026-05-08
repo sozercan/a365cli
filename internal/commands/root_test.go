@@ -174,6 +174,59 @@ func TestValidateDryRun_ValidArgs(t *testing.T) {
 	}
 }
 
+func TestValidateDryRun_UsesExplicitMCPArgsForValidation(t *testing.T) {
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "SendMessage",
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"chatId":  map[string]any{"type": "string"},
+					"content": map[string]any{"type": "string"},
+				},
+				"required": []any{"chatId", "content"},
+			},
+		},
+	}
+	server := setupMockMCPServer(t, schemas)
+
+	var buf bytes.Buffer
+	ctx := &Context{
+		Ctx:           context.Background(),
+		TokenProvider: func(ctx context.Context) (string, error) { return "test-token", nil },
+		Output:        &output.Formatter{Format: output.FormatJSON, Writer: &buf},
+		DryRun:        true,
+	}
+
+	err := ctx.ValidateDryRun(server.URL+"/", "SendMessage", "send message",
+		map[string]any{"action": "send-message", "message": "hello"},
+		map[string]any{"chatId": "abc", "content": "hello"})
+	if err != nil {
+		t.Fatalf("ValidateDryRun with explicit valid MCP args should not error: %v", err)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+	if parsed["dry_run"] != true {
+		t.Error("expected dry_run=true")
+	}
+	if parsed["action"] != "send-message" {
+		t.Errorf("expected display action to be preserved, got %v", parsed["action"])
+	}
+	if _, ok := parsed["chatId"]; ok {
+		t.Error("expected raw MCP-only chatId to stay out of dry-run display data")
+	}
+	val, ok := parsed["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object")
+	}
+	if val["valid"] != true {
+		t.Error("expected valid=true")
+	}
+}
+
 func TestValidateDryRun_InvalidArgs(t *testing.T) {
 	schemas := []mcp.ToolInfo{
 		{

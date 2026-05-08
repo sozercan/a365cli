@@ -130,6 +130,11 @@ type ChatsSendCmd struct {
 }
 
 func (c *ChatsSendCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"chatId":  c.ChatID,
+		"content": c.Message,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(teamsEndpoint(), "PostMessage",
 			fmt.Sprintf("send message to chat %s", c.ChatID),
@@ -138,6 +143,7 @@ func (c *ChatsSendCmd) Run(ctx *commands.Context) error {
 				"chatId":  c.ChatID,
 				"content": c.Message,
 			},
+			args,
 		)
 	}
 
@@ -146,10 +152,7 @@ func (c *ChatsSendCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "PostMessage", map[string]any{
-		"chatId":  c.ChatID,
-		"content": c.Message,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "PostMessage", args)
 	if err != nil {
 		return fmt.Errorf("send message: %w", err)
 	}
@@ -167,11 +170,15 @@ type ChatsSendSelfCmd struct {
 }
 
 func (c *ChatsSendSelfCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"content": c.Message,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(teamsEndpoint(), "SendMessageToSelf", "send message to self", map[string]any{
 			"action":  "chats.send-self",
 			"content": c.Message,
-		})
+		}, args)
 	}
 
 	client := ctx.NewMCPClient(teamsEndpoint())
@@ -179,9 +186,7 @@ func (c *ChatsSendSelfCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "SendMessageToSelf", map[string]any{
-		"content": c.Message,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "SendMessageToSelf", args)
 	if err != nil {
 		return fmt.Errorf("send to self: %w", err)
 	}
@@ -230,6 +235,14 @@ type ChatsCreateCmd struct {
 }
 
 func (c *ChatsCreateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"chatType":     c.Type,
+		"members_upns": c.Members,
+	}
+	if c.Topic != "" {
+		args["topic"] = c.Topic
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(teamsEndpoint(), "CreateChat",
 			fmt.Sprintf("create %s chat with %v", c.Type, c.Members),
@@ -239,20 +252,13 @@ func (c *ChatsCreateCmd) Run(ctx *commands.Context) error {
 				"members_upns": c.Members,
 				"topic":        c.Topic,
 			},
+			args,
 		)
 	}
 
 	client := ctx.NewMCPClient(teamsEndpoint())
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
-	}
-
-	args := map[string]any{
-		"chatType":     c.Type,
-		"members_upns": c.Members,
-	}
-	if c.Topic != "" {
-		args["topic"] = c.Topic
 	}
 
 	resp, err := client.CallTool(ctx.Ctx, "CreateChat", args)
@@ -273,10 +279,15 @@ type ChatsDeleteCmd struct {
 }
 
 func (c *ChatsDeleteCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"chatId": c.ChatID,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(teamsEndpoint(), "DeleteChat",
 			fmt.Sprintf("delete chat %s", c.ChatID),
 			map[string]any{"action": "chats.delete", "chatId": c.ChatID},
+			args,
 		)
 	}
 
@@ -289,9 +300,7 @@ func (c *ChatsDeleteCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "DeleteChat", map[string]any{
-		"chatId": c.ChatID,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "DeleteChat", args)
 	if err != nil {
 		return fmt.Errorf("delete chat: %w", err)
 	}
@@ -310,10 +319,16 @@ type ChatsUpdateCmd struct {
 }
 
 func (c *ChatsUpdateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"chatId": c.ChatID,
+		"topic":  c.Topic,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(teamsEndpoint(), "UpdateChat",
 			fmt.Sprintf("update chat %s topic to %q", c.ChatID, c.Topic),
 			map[string]any{"action": "chats.update", "chatId": c.ChatID, "topic": c.Topic},
+			args,
 		)
 	}
 
@@ -322,10 +337,7 @@ func (c *ChatsUpdateCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "UpdateChat", map[string]any{
-		"chatId": c.ChatID,
-		"topic":  c.Topic,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "UpdateChat", args)
 	if err != nil {
 		return fmt.Errorf("update chat: %w", err)
 	}
@@ -347,6 +359,12 @@ type ChatsUpdateMessageCmd struct {
 }
 
 func (c *ChatsUpdateMessageCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"chatId":    c.ChatID,
+		"messageId": c.MessageID,
+		"content":   c.Content,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(teamsEndpoint(), "UpdateChatMessage",
 			fmt.Sprintf("update message %s in chat %s", c.MessageID, c.ChatID),
@@ -356,6 +374,7 @@ func (c *ChatsUpdateMessageCmd) Run(ctx *commands.Context) error {
 				"messageId": c.MessageID,
 				"content":   c.Content,
 			},
+			args,
 		)
 	}
 
@@ -364,11 +383,7 @@ func (c *ChatsUpdateMessageCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "UpdateChatMessage", map[string]any{
-		"chatId":    c.ChatID,
-		"messageId": c.MessageID,
-		"content":   c.Content,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "UpdateChatMessage", args)
 	if err != nil {
 		return fmt.Errorf("update message: %w", err)
 	}
@@ -387,10 +402,16 @@ type ChatsDeleteMessageCmd struct {
 }
 
 func (c *ChatsDeleteMessageCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"chatId":    c.ChatID,
+		"messageId": c.MessageID,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(teamsEndpoint(), "DeleteChatMessage",
 			fmt.Sprintf("delete message %s in chat %s", c.MessageID, c.ChatID),
 			map[string]any{"action": "chats.delete-message", "chatId": c.ChatID, "messageId": c.MessageID},
+			args,
 		)
 	}
 
@@ -403,10 +424,7 @@ func (c *ChatsDeleteMessageCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "DeleteChatMessage", map[string]any{
-		"chatId":    c.ChatID,
-		"messageId": c.MessageID,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "DeleteChatMessage", args)
 	if err != nil {
 		return fmt.Errorf("delete message: %w", err)
 	}
@@ -457,17 +475,18 @@ type ChatsAddMemberCmd struct {
 }
 
 func (c *ChatsAddMemberCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"chatId":         c.ChatID,
+		"roles":          c.Roles,
+		"userodata_bind": fmt.Sprintf("https://graph.microsoft.com/v1.0/users('%s')", c.UPN),
+		"odata_type":     "#microsoft.graph.aadUserConversationMember",
+	}
+
 	if ctx.DryRun {
-		mcpArgs := map[string]any{
-			"chatId":         c.ChatID,
-			"roles":          c.Roles,
-			"userodata_bind": fmt.Sprintf("https://graph.microsoft.com/v1.0/users('%s')", c.UPN),
-			"odata_type":     "#microsoft.graph.aadUserConversationMember",
-		}
 		return ctx.ValidateDryRun(teamsEndpoint(), "AddChatMember",
 			fmt.Sprintf("add member %s to chat %s", c.UPN, c.ChatID),
 			map[string]any{"action": "chats.add-member", "chatId": c.ChatID, "upn": c.UPN, "roles": c.Roles},
-			mcpArgs,
+			args,
 		)
 	}
 
@@ -476,12 +495,7 @@ func (c *ChatsAddMemberCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "AddChatMember", map[string]any{
-		"chatId":         c.ChatID,
-		"roles":          c.Roles,
-		"userodata_bind": fmt.Sprintf("https://graph.microsoft.com/v1.0/users('%s')", c.UPN),
-		"odata_type":     "#microsoft.graph.aadUserConversationMember",
-	})
+	resp, err := client.CallTool(ctx.Ctx, "AddChatMember", args)
 	if err != nil {
 		return fmt.Errorf("add chat member: %w", err)
 	}

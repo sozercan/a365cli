@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/sozercan/a365cli/internal/commands"
+	cmdexec "github.com/sozercan/a365cli/internal/commands/exec"
 	"github.com/sozercan/a365cli/internal/config"
 	"github.com/sozercan/a365cli/internal/output"
 )
@@ -197,20 +198,23 @@ type SPLCreateCmd struct {
 }
 
 func (c *SPLCreateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"siteId":      c.SiteID,
+		"displayName": c.DisplayName,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(spListsEndpoint(), "createList",
 			fmt.Sprintf("create list %q in site %s", c.DisplayName, c.SiteID),
 			map[string]any{"action": "sp-lists.create-list", "siteId": c.SiteID, "displayName": c.DisplayName},
+			args,
 		)
 	}
 	client := ctx.NewMCPClient(spListsEndpoint())
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
-	resp, err := client.CallTool(ctx.Ctx, "createList", map[string]any{
-		"siteId":      c.SiteID,
-		"displayName": c.DisplayName,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "createList", args)
 	if err != nil {
 		return fmt.Errorf("create list: %w", err)
 	}
@@ -232,22 +236,25 @@ type SPLAddColumnCmd struct {
 }
 
 func (c *SPLAddColumnCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"siteId":     c.SiteID,
+		"listId":     c.ListID,
+		"name":       c.Name,
+		"columnType": c.ColumnType,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(spListsEndpoint(), "createListColumn",
 			fmt.Sprintf("add column %q (type %s) to list %s in site %s", c.Name, c.ColumnType, c.ListID, c.SiteID),
 			map[string]any{"action": "sp-lists.add-column", "siteId": c.SiteID, "listId": c.ListID, "name": c.Name, "columnType": c.ColumnType},
+			args,
 		)
 	}
 	client := ctx.NewMCPClient(spListsEndpoint())
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
-	resp, err := client.CallTool(ctx.Ctx, "createListColumn", map[string]any{
-		"siteId":     c.SiteID,
-		"listId":     c.ListID,
-		"name":       c.Name,
-		"columnType": c.ColumnType,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "createListColumn", args)
 	if err != nil {
 		return fmt.Errorf("add column: %w", err)
 	}
@@ -273,21 +280,24 @@ func (c *SPLAddItemCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("invalid fields JSON: %w", err)
 	}
 
+	args := map[string]any{
+		"siteId": c.SiteID,
+		"listId": c.ListID,
+		"fields": fields,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(spListsEndpoint(), "createListItem",
 			fmt.Sprintf("add item to list %s in site %s", c.ListID, c.SiteID),
 			map[string]any{"action": "sp-lists.add-item", "siteId": c.SiteID, "listId": c.ListID, "fields": fields},
+			args,
 		)
 	}
 	client := ctx.NewMCPClient(spListsEndpoint())
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
-	resp, err := client.CallTool(ctx.Ctx, "createListItem", map[string]any{
-		"siteId": c.SiteID,
-		"listId": c.ListID,
-		"fields": fields,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "createListItem", args)
 	if err != nil {
 		return fmt.Errorf("add item: %w", err)
 	}
@@ -309,16 +319,6 @@ type SPLUpdateItemCmd struct {
 }
 
 func (c *SPLUpdateItemCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(spListsEndpoint(), "updateListItem",
-			fmt.Sprintf("update item %s in list %s (site %s)", c.ItemID, c.ListID, c.SiteID),
-			map[string]any{"action": "sp-lists.update-item", "siteId": c.SiteID, "listId": c.ListID, "itemId": c.ItemID},
-		)
-	}
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
 	args := map[string]any{
 		"siteId": c.SiteID,
 		"listId": c.ListID,
@@ -331,15 +331,21 @@ func (c *SPLUpdateItemCmd) Run(ctx *commands.Context) error {
 		}
 		args["fields"] = fields
 	}
-	resp, err := client.CallTool(ctx.Ctx, "updateListItem", args)
-	if err != nil {
-		return fmt.Errorf("update item: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
-	if err != nil {
-		return err
-	}
-	return ctx.Output.PrintMutation("Item updated", data)
+
+	return cmdexec.New(ctx).Mutate(cmdexec.OperationPlan{
+		Service: "sp-lists",
+		Tool:    "updateListItem",
+		Args:    args,
+		Action:  fmt.Sprintf("update item %s in list %s (site %s)", c.ItemID, c.ListID, c.SiteID),
+		Display: map[string]any{
+			"action": "sp-lists.update-item",
+			"siteId": c.SiteID,
+			"listId": c.ListID,
+			"itemId": c.ItemID,
+		},
+		ErrPrefix: "update item",
+		Output:    cmdexec.Mutation("Item updated"),
+	})
 }
 
 // --- EditCol ---
@@ -353,16 +359,6 @@ type SPLEditColCmd struct {
 }
 
 func (c *SPLEditColCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(spListsEndpoint(), "editListColumn",
-			fmt.Sprintf("edit column %s in list %s (site %s)", c.ColumnID, c.ListID, c.SiteID),
-			map[string]any{"action": "sp-lists.edit-column", "siteId": c.SiteID, "listId": c.ListID, "columnId": c.ColumnID},
-		)
-	}
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
 	args := map[string]any{
 		"siteId":   c.SiteID,
 		"listId":   c.ListID,
@@ -370,6 +366,18 @@ func (c *SPLEditColCmd) Run(ctx *commands.Context) error {
 	}
 	if c.Name != "" {
 		args["name"] = c.Name
+	}
+
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(spListsEndpoint(), "editListColumn",
+			fmt.Sprintf("edit column %s in list %s (site %s)", c.ColumnID, c.ListID, c.SiteID),
+			map[string]any{"action": "sp-lists.edit-column", "siteId": c.SiteID, "listId": c.ListID, "columnId": c.ColumnID},
+			args,
+		)
+	}
+	client := ctx.NewMCPClient(spListsEndpoint())
+	if err := client.Initialize(ctx.Ctx); err != nil {
+		return fmt.Errorf("initialize: %w", err)
 	}
 	resp, err := client.CallTool(ctx.Ctx, "editListColumn", args)
 	if err != nil {
@@ -392,10 +400,17 @@ type SPLDeleteItemCmd struct {
 }
 
 func (c *SPLDeleteItemCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"siteId": c.SiteID,
+		"listId": c.ListID,
+		"itemId": c.ItemID,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(spListsEndpoint(), "deleteListItem",
 			fmt.Sprintf("delete item %s from list %s (site %s)", c.ItemID, c.ListID, c.SiteID),
 			map[string]any{"action": "sp-lists.delete-item", "siteId": c.SiteID, "listId": c.ListID, "itemId": c.ItemID},
+			args,
 		)
 	}
 	if err := ctx.Confirm(fmt.Sprintf("delete item %s from list %s", c.ItemID, c.ListID)); err != nil {
@@ -405,11 +420,7 @@ func (c *SPLDeleteItemCmd) Run(ctx *commands.Context) error {
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
-	resp, err := client.CallTool(ctx.Ctx, "deleteListItem", map[string]any{
-		"siteId": c.SiteID,
-		"listId": c.ListID,
-		"itemId": c.ItemID,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "deleteListItem", args)
 	if err != nil {
 		return fmt.Errorf("delete item: %w", err)
 	}
@@ -430,10 +441,17 @@ type SPLDeleteColCmd struct {
 }
 
 func (c *SPLDeleteColCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"siteId":   c.SiteID,
+		"listId":   c.ListID,
+		"columnId": c.ColumnID,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(spListsEndpoint(), "deleteListColumn",
 			fmt.Sprintf("delete column %s from list %s (site %s)", c.ColumnID, c.ListID, c.SiteID),
 			map[string]any{"action": "sp-lists.delete-column", "siteId": c.SiteID, "listId": c.ListID, "columnId": c.ColumnID},
+			args,
 		)
 	}
 	if err := ctx.Confirm(fmt.Sprintf("delete column %s from list %s", c.ColumnID, c.ListID)); err != nil {
@@ -443,11 +461,7 @@ func (c *SPLDeleteColCmd) Run(ctx *commands.Context) error {
 	if err := client.Initialize(ctx.Ctx); err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
-	resp, err := client.CallTool(ctx.Ctx, "deleteListColumn", map[string]any{
-		"siteId":   c.SiteID,
-		"listId":   c.ListID,
-		"columnId": c.ColumnID,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "deleteListColumn", args)
 	if err != nil {
 		return fmt.Errorf("delete column: %w", err)
 	}

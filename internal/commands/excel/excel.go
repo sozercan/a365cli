@@ -26,10 +26,13 @@ type ExcelCreateCmd struct {
 }
 
 func (c *ExcelCreateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"desiredFileName": c.FileName}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(excelEndpoint(), "CreateWorkbook",
 			fmt.Sprintf("create Excel workbook %q", c.FileName),
 			map[string]any{"action": "excel.create", "desiredFileName": c.FileName},
+			args,
 		)
 	}
 
@@ -38,9 +41,7 @@ func (c *ExcelCreateCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "CreateWorkbook", map[string]any{
-		"desiredFileName": c.FileName,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "CreateWorkbook", args)
 	if err != nil {
 		return fmt.Errorf("create workbook: %w", err)
 	}
@@ -88,10 +89,18 @@ type ExcelCommentCmd struct {
 }
 
 func (c *ExcelCommentCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"driveId":     c.DriveID,
+		"documentId":  c.DocumentID,
+		"cellAddress": c.CellAddress,
+		"text":        c.Text,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(excelEndpoint(), "CreateComment",
 			fmt.Sprintf("add comment to workbook %s at cell %s", c.DocumentID, c.CellAddress),
 			map[string]any{"action": "excel.comment", "driveId": c.DriveID, "documentId": c.DocumentID, "cellAddress": c.CellAddress},
+			args,
 		)
 	}
 
@@ -100,12 +109,7 @@ func (c *ExcelCommentCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "CreateComment", map[string]any{
-		"driveId":     c.DriveID,
-		"documentId":  c.DocumentID,
-		"cellAddress": c.CellAddress,
-		"text":        c.Text,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "CreateComment", args)
 	if err != nil {
 		return fmt.Errorf("add comment: %w", err)
 	}
@@ -126,10 +130,18 @@ type ExcelReplyCmd struct {
 }
 
 func (c *ExcelReplyCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"commentId":  c.CommentID,
+		"driveId":    c.DriveID,
+		"documentId": c.DocumentID,
+		"text":       c.Text,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(excelEndpoint(), "ReplyToComment",
 			fmt.Sprintf("reply to comment %s on workbook %s", c.CommentID, c.DocumentID),
 			map[string]any{"action": "excel.reply", "commentId": c.CommentID, "driveId": c.DriveID, "documentId": c.DocumentID},
+			args,
 		)
 	}
 
@@ -138,12 +150,7 @@ func (c *ExcelReplyCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "ReplyToComment", map[string]any{
-		"commentId":  c.CommentID,
-		"driveId":    c.DriveID,
-		"documentId": c.DocumentID,
-		"text":       c.Text,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "ReplyToComment", args)
 	if err != nil {
 		return fmt.Errorf("reply to comment: %w", err)
 	}

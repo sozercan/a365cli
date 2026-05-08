@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/sozercan/a365cli/internal/commands"
@@ -27,6 +28,81 @@ func SetupTestServer(t *testing.T, toolResponses map[string]string) (*commands.C
 // tools/list requests with the provided tool schemas. If toolSchemas is nil,
 // tools/list returns an empty list.
 func SetupTestServerWithSchemas(t *testing.T, toolResponses map[string]string, toolSchemas []mcp.ToolInfo) (*commands.Context, *bytes.Buffer) {
+	t.Helper()
+	ctx, buf, _ := setupTestServer(t, toolResponses, toolSchemas, nil)
+	return ctx, buf
+}
+
+// RecordedCall captures a tools/call request sent to the mock MCP server.
+type RecordedCall struct {
+	Name      string
+	Arguments map[string]any
+}
+
+// MCPRecorder records tools/call requests for command tests.
+type MCPRecorder struct {
+	mu    sync.Mutex
+	calls []RecordedCall
+}
+
+// SetupTestServerWithRecorder creates a mock MCP server and records tools/call requests.
+func SetupTestServerWithRecorder(t *testing.T, toolResponses map[string]string) (*commands.Context, *bytes.Buffer, *MCPRecorder) {
+	t.Helper()
+	return SetupTestServerWithSchemasAndRecorder(t, toolResponses, nil)
+}
+
+// SetupTestServerWithSchemasAndRecorder creates a mock MCP server with schemas
+// and records tools/call requests.
+func SetupTestServerWithSchemasAndRecorder(t *testing.T, toolResponses map[string]string, toolSchemas []mcp.ToolInfo) (*commands.Context, *bytes.Buffer, *MCPRecorder) {
+	t.Helper()
+	recorder := &MCPRecorder{}
+	return setupTestServer(t, toolResponses, toolSchemas, recorder)
+}
+
+// Calls returns a snapshot of all recorded tools/call requests.
+func (r *MCPRecorder) Calls() []RecordedCall {
+	if r == nil {
+		return nil
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	calls := make([]RecordedCall, len(r.calls))
+	for i, call := range r.calls {
+		calls[i] = RecordedCall{Name: call.Name, Arguments: cloneMap(call.Arguments)}
+	}
+	return calls
+}
+
+// LastCall returns the most recent recorded tools/call request.
+func (r *MCPRecorder) LastCall() (RecordedCall, bool) {
+	calls := r.Calls()
+	if len(calls) == 0 {
+		return RecordedCall{}, false
+	}
+	return calls[len(calls)-1], true
+}
+
+// Count returns how many tools/call requests matched a tool name.
+func (r *MCPRecorder) Count(name string) int {
+	count := 0
+	for _, call := range r.Calls() {
+		if call.Name == name {
+			count++
+		}
+	}
+	return count
+}
+
+func (r *MCPRecorder) record(name string, arguments map[string]any) {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, RecordedCall{Name: name, Arguments: cloneMap(arguments)})
+}
+
+func setupTestServer(t *testing.T, toolResponses map[string]string, toolSchemas []mcp.ToolInfo, recorder *MCPRecorder) (*commands.Context, *bytes.Buffer, *MCPRecorder) {
 	t.Helper()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -68,6 +144,7 @@ func SetupTestServerWithSchemas(t *testing.T, toolResponses map[string]string, t
 				Arguments map[string]any `json:"arguments"`
 			}
 			json.Unmarshal(req.Params, &params) //nolint:errcheck
+			recorder.record(params.Name, params.Arguments)
 
 			respText, ok := toolResponses[params.Name]
 			if !ok {
@@ -116,10 +193,32 @@ func SetupTestServerWithSchemas(t *testing.T, toolResponses map[string]string, t
 			return "test-token", nil
 		},
 		Output:  &output.Formatter{Format: output.FormatJSON, Writer: &buf},
-		UserUPN: "test@example.com",
+		UserUPN: "user@contoso.com",
 	}
 
-	return ctx, &buf
+	return ctx, &buf, recorder
+}
+
+func cloneMap(in map[string]any) map[string]any {
+	if in == nil {
+		return nil
+	}
+	b, err := json.Marshal(in)
+	if err != nil {
+		out := make(map[string]any, len(in))
+		for k, v := range in {
+			out[k] = v
+		}
+		return out
+	}
+	var out map[string]any
+	if err := json.Unmarshal(b, &out); err != nil {
+		out = make(map[string]any, len(in))
+		for k, v := range in {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 // MustJSON marshals v to a JSON string, panicking on error.

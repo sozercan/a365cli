@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/sozercan/a365cli/internal/commands"
+	cmdexec "github.com/sozercan/a365cli/internal/commands/exec"
 	"github.com/sozercan/a365cli/internal/config"
 	"github.com/sozercan/a365cli/internal/output"
 )
@@ -44,11 +45,6 @@ type MailSearchCmd struct {
 }
 
 func (c *MailSearchCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(mailEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	// Auto-wrap bare search terms into OData $search query parameters.
 	// If the user provides a raw OData string (starting with ? or $), pass it through.
 	query := c.Query
@@ -56,28 +52,13 @@ func (c *MailSearchCmd) Run(ctx *commands.Context) error {
 		query = `?$search="` + query + `"`
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "SearchMessagesQueryParameters", map[string]any{
-		"queryParameters": query,
+	return cmdexec.New(ctx).Query(cmdexec.ToolCall{
+		Service:   "mail",
+		Tool:      "SearchMessagesQueryParameters",
+		Args:      map[string]any{"queryParameters": query},
+		ErrPrefix: "search",
+		Output:    cmdexec.List("messages", output.MailColumns, "messages", "value").WithMax(c.Max),
 	})
-	if err != nil {
-		return fmt.Errorf("search: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
-	if err != nil {
-		return err
-	}
-	rows := output.ToRows(data, "messages")
-	if rows == nil {
-		rows = output.ToRows(data, "value")
-	}
-	if rows == nil {
-		return ctx.Output.PrintItem(data)
-	}
-	if c.Max > 0 && len(rows) > c.Max {
-		rows = rows[:c.Max]
-	}
-	return ctx.Output.PrintList("messages", output.MailColumns, rows)
 }
 
 // MailSearchNLCmd searches emails with natural language.
@@ -111,23 +92,13 @@ type MailGetCmd struct {
 }
 
 func (c *MailGetCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(mailEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetMessage", map[string]any{
-		"id": c.ID,
+	return cmdexec.New(ctx).Query(cmdexec.ToolCall{
+		Service:   "mail",
+		Tool:      "GetMessage",
+		Args:      map[string]any{"id": c.ID},
+		ErrPrefix: "get message",
+		Output:    cmdexec.Item(),
 	})
-	if err != nil {
-		return fmt.Errorf("get message: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
-	if err != nil {
-		return err
-	}
-	return ctx.Output.PrintItem(data)
 }
 
 // MailSendCmd sends an email.
@@ -140,30 +111,6 @@ type MailSendCmd struct {
 }
 
 func (c *MailSendCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		mcpArgs := map[string]any{
-			"to":      c.To,
-			"subject": c.Subject,
-			"body":    c.Body,
-		}
-		if len(c.CC) > 0 {
-			mcpArgs["cc"] = c.CC
-		}
-		if len(c.BCC) > 0 {
-			mcpArgs["bcc"] = c.BCC
-		}
-		return ctx.ValidateDryRun(mailEndpoint(), "SendEmailWithAttachments",
-			fmt.Sprintf("send email to %v with subject %q", c.To, c.Subject),
-			map[string]any{"action": "mail.send", "to": c.To, "subject": c.Subject, "body_len": len(c.Body)},
-			mcpArgs,
-		)
-	}
-
-	client := ctx.NewMCPClient(mailEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{
 		"to":      c.To,
 		"subject": c.Subject,
@@ -176,16 +123,20 @@ func (c *MailSendCmd) Run(ctx *commands.Context) error {
 		args["bcc"] = c.BCC
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "SendEmailWithAttachments", args)
-	if err != nil {
-		return fmt.Errorf("send email: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
-	if err != nil {
-		return err
-	}
-	return ctx.Output.PrintMutation("Email sent", data)
+	return cmdexec.New(ctx).Mutate(cmdexec.OperationPlan{
+		Service: "mail",
+		Tool:    "SendEmailWithAttachments",
+		Args:    args,
+		Action:  fmt.Sprintf("send email to %v with subject %q", c.To, c.Subject),
+		Display: map[string]any{
+			"action":   "mail.send",
+			"to":       c.To,
+			"subject":  c.Subject,
+			"body_len": len(c.Body),
+		},
+		ErrPrefix: "send email",
+		Output:    cmdexec.Mutation("Email sent"),
+	})
 }
 
 // MailReplyCmd replies to an email.
@@ -324,10 +275,13 @@ type MailDeleteCmd struct {
 }
 
 func (c *MailDeleteCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"id": c.ID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(mailEndpoint(), "DeleteMessage",
 			fmt.Sprintf("delete message %s", c.ID),
 			map[string]any{"action": "mail.delete", "id": c.ID},
+			args,
 		)
 	}
 	if err := ctx.Confirm(fmt.Sprintf("delete email %s", c.ID)); err != nil {
@@ -339,7 +293,7 @@ func (c *MailDeleteCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "DeleteMessage", map[string]any{"id": c.ID})
+	resp, err := client.CallTool(ctx.Ctx, "DeleteMessage", args)
 	if err != nil {
 		return fmt.Errorf("delete: %w", err)
 	}
@@ -358,10 +312,16 @@ type MailFlagCmd struct {
 }
 
 func (c *MailFlagCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"messageId":  c.ID,
+		"flagStatus": c.Status,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(mailEndpoint(), "FlagEmail",
 			fmt.Sprintf("flag email %s as %s", c.ID, c.Status),
 			map[string]any{"action": "mail.flag", "messageId": c.ID, "flagStatus": c.Status},
+			args,
 		)
 	}
 
@@ -370,10 +330,7 @@ func (c *MailFlagCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "FlagEmail", map[string]any{
-		"messageId":  c.ID,
-		"flagStatus": c.Status,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "FlagEmail", args)
 	if err != nil {
 		return fmt.Errorf("flag: %w", err)
 	}
@@ -394,17 +351,6 @@ type MailDraftCmd struct {
 }
 
 func (c *MailDraftCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(mailEndpoint(), "CreateDraftMessage", "create draft email",
-			map[string]any{"action": "mail.draft", "subject": c.Subject, "to": c.To},
-		)
-	}
-
-	client := ctx.NewMCPClient(mailEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{}
 	if c.Subject != "" {
 		args["subject"] = c.Subject
@@ -417,6 +363,18 @@ func (c *MailDraftCmd) Run(ctx *commands.Context) error {
 	}
 	if len(c.CC) > 0 {
 		args["cc"] = c.CC
+	}
+
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(mailEndpoint(), "CreateDraftMessage", "create draft email",
+			map[string]any{"action": "mail.draft", "subject": c.Subject, "to": c.To},
+			args,
+		)
+	}
+
+	client := ctx.NewMCPClient(mailEndpoint())
+	if err := client.Initialize(ctx.Ctx); err != nil {
+		return fmt.Errorf("initialize: %w", err)
 	}
 
 	resp, err := client.CallTool(ctx.Ctx, "CreateDraftMessage", args)
@@ -437,10 +395,13 @@ type MailSendDraftCmd struct {
 }
 
 func (c *MailSendDraftCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"id": c.ID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(mailEndpoint(), "SendDraftMessage",
 			fmt.Sprintf("send draft %s", c.ID),
 			map[string]any{"action": "mail.send-draft", "id": c.ID},
+			args,
 		)
 	}
 
@@ -449,7 +410,7 @@ func (c *MailSendDraftCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "SendDraftMessage", map[string]any{"id": c.ID})
+	resp, err := client.CallTool(ctx.Ctx, "SendDraftMessage", args)
 	if err != nil {
 		return fmt.Errorf("send draft: %w", err)
 	}
@@ -496,18 +457,6 @@ type MailUpdateCmd struct {
 }
 
 func (c *MailUpdateCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(mailEndpoint(), "UpdateMessage",
-			fmt.Sprintf("update message %s", c.ID),
-			map[string]any{"action": "mail.update", "id": c.ID},
-		)
-	}
-
-	client := ctx.NewMCPClient(mailEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{
 		"id": c.ID,
 	}
@@ -524,16 +473,15 @@ func (c *MailUpdateCmd) Run(ctx *commands.Context) error {
 		args["categories"] = c.Categories
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "UpdateMessage", args)
-	if err != nil {
-		return fmt.Errorf("update message: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
-	if err != nil {
-		return err
-	}
-	return ctx.Output.PrintMutation("Email updated", data)
+	return cmdexec.New(ctx).Mutate(cmdexec.OperationPlan{
+		Service:   "mail",
+		Tool:      "UpdateMessage",
+		Args:      args,
+		Action:    fmt.Sprintf("update message %s", c.ID),
+		Display:   map[string]any{"action": "mail.update", "id": c.ID},
+		ErrPrefix: "update message",
+		Output:    cmdexec.Mutation("Email updated"),
+	})
 }
 
 // MailDownloadCmd downloads an attachment from a message.
@@ -621,10 +569,16 @@ type MailDeleteAttachCmd struct {
 }
 
 func (c *MailDeleteAttachCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"messageId":    c.MessageID,
+		"attachmentId": c.AttachmentID,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(mailEndpoint(), "DeleteAttachment",
 			fmt.Sprintf("delete attachment %s from message %s", c.AttachmentID, c.MessageID),
 			map[string]any{"action": "mail.delete-attachment", "messageId": c.MessageID, "attachmentId": c.AttachmentID},
+			args,
 		)
 	}
 	if err := ctx.Confirm(fmt.Sprintf("delete attachment %s from message %s", c.AttachmentID, c.MessageID)); err != nil {
@@ -636,10 +590,7 @@ func (c *MailDeleteAttachCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "DeleteAttachment", map[string]any{
-		"messageId":    c.MessageID,
-		"attachmentId": c.AttachmentID,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "DeleteAttachment", args)
 	if err != nil {
 		return fmt.Errorf("delete attachment: %w", err)
 	}
@@ -662,18 +613,6 @@ type MailUpdateDraftCmd struct {
 }
 
 func (c *MailUpdateDraftCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(mailEndpoint(), "UpdateDraft",
-			fmt.Sprintf("update draft %s", c.MessageID),
-			map[string]any{"action": "mail.update-draft", "messageId": c.MessageID},
-		)
-	}
-
-	client := ctx.NewMCPClient(mailEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{
 		"messageId": c.MessageID,
 	}
@@ -691,6 +630,19 @@ func (c *MailUpdateDraftCmd) Run(ctx *commands.Context) error {
 	}
 	if c.Body != "" {
 		args["body"] = c.Body
+	}
+
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(mailEndpoint(), "UpdateDraft",
+			fmt.Sprintf("update draft %s", c.MessageID),
+			map[string]any{"action": "mail.update-draft", "messageId": c.MessageID},
+			args,
+		)
+	}
+
+	client := ctx.NewMCPClient(mailEndpoint())
+	if err := client.Initialize(ctx.Ctx); err != nil {
+		return fmt.Errorf("initialize: %w", err)
 	}
 
 	resp, err := client.CallTool(ctx.Ctx, "UpdateDraft", args)
@@ -712,10 +664,16 @@ type MailDraftAttachCmd struct {
 }
 
 func (c *MailDraftAttachCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"messageId":      c.MessageID,
+		"attachmentUris": c.AttachmentUris,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(mailEndpoint(), "AddDraftAttachments",
 			fmt.Sprintf("add attachments to draft %s", c.MessageID),
 			map[string]any{"action": "mail.draft-attachments", "messageId": c.MessageID, "attachmentUris": c.AttachmentUris},
+			args,
 		)
 	}
 
@@ -724,10 +682,7 @@ func (c *MailDraftAttachCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "AddDraftAttachments", map[string]any{
-		"messageId":      c.MessageID,
-		"attachmentUris": c.AttachmentUris,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "AddDraftAttachments", args)
 	if err != nil {
 		return fmt.Errorf("add draft attachments: %w", err)
 	}
@@ -745,10 +700,13 @@ type MailReplyThreadCmd struct {
 }
 
 func (c *MailReplyThreadCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"messageId": c.MessageID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(mailEndpoint(), "ReplyWithFullThread",
 			fmt.Sprintf("reply with full thread to message %s", c.MessageID),
 			map[string]any{"action": "mail.reply-thread", "messageId": c.MessageID},
+			args,
 		)
 	}
 
@@ -757,9 +715,7 @@ func (c *MailReplyThreadCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "ReplyWithFullThread", map[string]any{
-		"messageId": c.MessageID,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "ReplyWithFullThread", args)
 	if err != nil {
 		return fmt.Errorf("reply with thread: %w", err)
 	}
@@ -777,10 +733,13 @@ type MailReplyAllThreadCmd struct {
 }
 
 func (c *MailReplyAllThreadCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"messageId": c.MessageID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(mailEndpoint(), "ReplyAllWithFullThread",
 			fmt.Sprintf("reply-all with full thread to message %s", c.MessageID),
 			map[string]any{"action": "mail.reply-all-thread", "messageId": c.MessageID},
+			args,
 		)
 	}
 
@@ -789,9 +748,7 @@ func (c *MailReplyAllThreadCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "ReplyAllWithFullThread", map[string]any{
-		"messageId": c.MessageID,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "ReplyAllWithFullThread", args)
 	if err != nil {
 		return fmt.Errorf("reply-all with thread: %w", err)
 	}
@@ -809,10 +766,13 @@ type MailForwardThreadCmd struct {
 }
 
 func (c *MailForwardThreadCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"messageId": c.MessageID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(mailEndpoint(), "ForwardMessageWithFullThread",
 			fmt.Sprintf("forward with full thread message %s", c.MessageID),
 			map[string]any{"action": "mail.forward-thread", "messageId": c.MessageID},
+			args,
 		)
 	}
 
@@ -821,9 +781,7 @@ func (c *MailForwardThreadCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("initialize: %w", err)
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "ForwardMessageWithFullThread", map[string]any{
-		"messageId": c.MessageID,
-	})
+	resp, err := client.CallTool(ctx.Ctx, "ForwardMessageWithFullThread", args)
 	if err != nil {
 		return fmt.Errorf("forward with thread: %w", err)
 	}
