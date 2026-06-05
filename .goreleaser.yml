@@ -25,6 +25,10 @@ builds:
       - -s -w
       - -X github.com/sozercan/a365cli/internal/version.Version={{.Version}}
       - -X github.com/sozercan/a365cli/internal/version.Commit={{.ShortCommit}}
+    hooks:
+      post:
+        - cmd: ./scripts/sign-darwin-binary.sh "{{ .Path }}" "{{ .Target }}"
+          output: true
 
 archives:
   - id: default
