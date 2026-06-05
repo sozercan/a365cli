@@ -26,6 +26,18 @@ refresh tokens in the OS credential store. Use `make build-static` if you need
 a pure-Go build; auth still works, but token persistence falls back to the
 non-CGO path.
 
+On macOS, `make build` and `make install` sign the binary after compilation.
+When an Apple Development signing identity is available, it is used so Keychain
+access remains stable across rebuilds. Without one, the build falls back to
+ad-hoc signing; the binary still builds, but Keychain may prompt again after
+rebuilds. Set `A365_CODESIGN_IDENTITY` to a certificate hash or name to override
+auto-detection.
+
+Release builds also sign Darwin binaries before packaging. Configure
+`MACOS_CERTIFICATE`, `MACOS_CERTIFICATE_PWD`, and `MACOS_KEYCHAIN_PWD` GitHub
+Actions secrets to use certificate-backed signing. Without those secrets, Darwin
+release binaries are signed ad-hoc.
+
 ## Adding a New Service
 
 Adding a new M365 service is straightforward. Here's the pattern:
