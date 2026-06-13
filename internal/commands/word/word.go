@@ -5,7 +5,6 @@ import (
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
-	"github.com/sozercan/a365cli/internal/output"
 )
 
 // WordCmd groups all Word subcommands.
@@ -22,30 +21,26 @@ func wordEndpoint() string {
 
 // WordCreateCmd creates a new Word document.
 type WordCreateCmd struct {
-	FileName string `arg:"" help:"Desired file name for the new document"`
+	FileName      string `arg:"" help:"Desired file name for the new document"`
+	ContentInHTML string `help:"HTML or plain text content for the document body" name:"content" optional:"" default:""`
 }
 
 func (c *WordCreateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(wordEndpoint(), "CreateDocument",
 			fmt.Sprintf("create Word document %q", c.FileName),
-			map[string]any{"action": "word.create", "desiredFileName": c.FileName},
+			map[string]any{
+				"action":        "word.create",
+				"fileName":      c.FileName,
+				"contentInHtml": c.ContentInHTML,
+			},
 		)
 	}
 
-	client := ctx.NewMCPClient(wordEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "CreateDocument", map[string]any{
-		"desiredFileName": c.FileName,
+	data, err := ctx.CallToolData(wordEndpoint(), "CreateDocument", "create document", map[string]any{
+		"fileName":      c.FileName,
+		"contentInHtml": c.ContentInHTML,
 	})
-	if err != nil {
-		return fmt.Errorf("create document: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -54,25 +49,13 @@ func (c *WordCreateCmd) Run(ctx *commands.Context) error {
 
 // WordGetCmd gets Word document content.
 type WordGetCmd struct {
-	DriveID    string `arg:"" help:"Drive ID"`
-	DocumentID string `arg:"" help:"Document ID"`
+	URL string `arg:"" help:"SharePoint sharing URL for the document"`
 }
 
 func (c *WordGetCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(wordEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetDocumentContent", map[string]any{
-		"driveId":    c.DriveID,
-		"documentId": c.DocumentID,
+	data, err := ctx.CallToolData(wordEndpoint(), "GetDocumentContent", "get document content", map[string]any{
+		"url": c.URL,
 	})
-	if err != nil {
-		return fmt.Errorf("get document content: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -90,25 +73,20 @@ func (c *WordCommentCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(wordEndpoint(), "AddComment",
 			fmt.Sprintf("add comment to document %s", c.DocumentID),
-			map[string]any{"action": "word.comment", "driveId": c.DriveID, "documentId": c.DocumentID},
+			map[string]any{
+				"action":     "word.comment",
+				"driveId":    c.DriveID,
+				"documentId": c.DocumentID,
+				"newComment": c.Text,
+			},
 		)
 	}
 
-	client := ctx.NewMCPClient(wordEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "AddComment", map[string]any{
+	data, err := ctx.CallToolData(wordEndpoint(), "AddComment", "add comment", map[string]any{
 		"driveId":    c.DriveID,
 		"documentId": c.DocumentID,
-		"text":       c.Text,
+		"newComment": c.Text,
 	})
-	if err != nil {
-		return fmt.Errorf("add comment: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -127,26 +105,22 @@ func (c *WordReplyCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(wordEndpoint(), "ReplyToComment",
 			fmt.Sprintf("reply to comment %s on document %s", c.CommentID, c.DocumentID),
-			map[string]any{"action": "word.reply", "commentId": c.CommentID, "driveId": c.DriveID, "documentId": c.DocumentID},
+			map[string]any{
+				"action":     "word.reply",
+				"commentId":  c.CommentID,
+				"driveId":    c.DriveID,
+				"documentId": c.DocumentID,
+				"newComment": c.Text,
+			},
 		)
 	}
 
-	client := ctx.NewMCPClient(wordEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "ReplyToComment", map[string]any{
+	data, err := ctx.CallToolData(wordEndpoint(), "ReplyToComment", "reply to comment", map[string]any{
 		"commentId":  c.CommentID,
 		"driveId":    c.DriveID,
 		"documentId": c.DocumentID,
-		"text":       c.Text,
+		"newComment": c.Text,
 	})
-	if err != nil {
-		return fmt.Errorf("reply to comment: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
