@@ -73,8 +73,112 @@ func TestNewMCPClient_Verbose(t *testing.T) {
 	// doesn't panic or error when created with Verbose=true.
 }
 
-// setupMockMCPServer creates an httptest server that handles initialize, tools/list,
-// and tools/call for ValidateDryRun tests.
+func TestCallToolData_Success(t *testing.T) {
+	var gotTool string
+	var gotArgs map[string]any
+	server := setupMockMCPCallServer(t, func(w http.ResponseWriter, reqID int, params toolCallParams) {
+		gotTool = params.Name
+		gotArgs = params.Arguments
+		writeMCPSSE(t, w, reqID, map[string]any{
+			"result": map[string]any{
+				"content": []map[string]any{
+					{"type": "text", "text": `{"results":[{"title":"Contoso"}]}`},
+				},
+			},
+		})
+	})
+
+	ctx := &Context{
+		Ctx:           context.Background(),
+		TokenProvider: func(ctx context.Context) (string, error) { return "test-token", nil },
+		Output:        &output.Formatter{Format: output.FormatJSON},
+	}
+
+	data, err := ctx.CallToolData(server.URL+"/", "SearchWeb", "search web", map[string]any{"query": "contoso"})
+	if err != nil {
+		t.Fatalf("CallToolData() error: %v", err)
+	}
+	if gotTool != "SearchWeb" {
+		t.Fatalf("tool = %q, want SearchWeb", gotTool)
+	}
+	if gotArgs["query"] != "contoso" {
+		t.Fatalf("query arg = %v, want contoso", gotArgs["query"])
+	}
+	results, ok := data["results"].([]any)
+	if !ok || len(results) != 1 {
+		t.Fatalf("results = %#v, want one result", data["results"])
+	}
+}
+
+func TestCallToolData_ToolCallErrorIncludesAction(t *testing.T) {
+	server := setupMockMCPCallServer(t, func(w http.ResponseWriter, _ int, _ toolCallParams) {
+		http.Error(w, "upstream failed", http.StatusInternalServerError)
+	})
+
+	ctx := &Context{
+		Ctx:           context.Background(),
+		TokenProvider: func(ctx context.Context) (string, error) { return "test-token", nil },
+		Output:        &output.Formatter{Format: output.FormatJSON},
+	}
+
+	_, err := ctx.CallToolData(server.URL+"/", "SearchWeb", "search web", map[string]any{"query": "contoso"})
+	if err == nil {
+		t.Fatal("CallToolData() expected error")
+	}
+	if got := err.Error(); !strings.Contains(got, "search web: HTTP 500") {
+		t.Fatalf("error = %q, want action and HTTP status", got)
+	}
+}
+
+type toolCallParams struct {
+	Name      string         `json:"name"`
+	Arguments map[string]any `json:"arguments"`
+}
+
+func setupMockMCPCallServer(t *testing.T, onToolCall func(http.ResponseWriter, int, toolCallParams)) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var req struct {
+			ID     int             `json:"id"`
+			Method string          `json:"method"`
+			Params json.RawMessage `json:"params"`
+		}
+		json.Unmarshal(body, &req) //nolint:errcheck
+
+		switch req.Method {
+		case "initialize":
+			writeMCPSSE(t, w, req.ID, map[string]any{
+				"result": map[string]any{
+					"protocolVersion": "2024-11-05",
+					"serverInfo":      map[string]any{"name": "test", "version": "1.0"},
+				},
+			})
+		case "tools/call":
+			var params toolCallParams
+			json.Unmarshal(req.Params, &params) //nolint:errcheck
+			onToolCall(w, req.ID, params)
+		default:
+			writeMCPSSE(t, w, req.ID, map[string]any{
+				"error": map[string]any{"code": -32601, "message": "unknown method"},
+			})
+		}
+	}))
+	t.Cleanup(func() { server.Close() })
+	return server
+}
+
+func writeMCPSSE(t *testing.T, w http.ResponseWriter, reqID int, payload map[string]any) {
+	t.Helper()
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Mcp-Session-Id", "test-session")
+	payload["jsonrpc"] = "2.0"
+	payload["id"] = reqID
+	fmt.Fprintf(w, "event: message\ndata: %s\n\n", mustJSON(payload))
+}
+
+// setupMockMCPServer creates an httptest server that handles initialize and tools/list
+// for ValidateDryRun tests.
 func setupMockMCPServer(t *testing.T, toolSchemas []mcp.ToolInfo) *httptest.Server {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

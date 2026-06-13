@@ -5,7 +5,6 @@ import (
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
-	"github.com/sozercan/a365cli/internal/output"
 )
 
 // AdminCmd groups M365 admin subcommands.
@@ -25,20 +24,10 @@ type AdminSearchUsersCmd struct {
 }
 
 func (c *AdminSearchUsersCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(adminEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "mcp_Admin365_SearchUserTools", map[string]any{
+	data, err := ctx.CallToolData(adminEndpoint(), "mcp_Admin365_SearchUserTools", "search users", map[string]any{
 		"searchTerm":       c.Query,
 		"ConsistencyLevel": "eventual",
 	})
-	if err != nil {
-		return fmt.Errorf("search users: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -49,17 +38,7 @@ func (c *AdminSearchUsersCmd) Run(ctx *commands.Context) error {
 type AdminListLicensesCmd struct{}
 
 func (c *AdminListLicensesCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(adminEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "mcp_Admin365_ListLicenseTools", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("list licenses: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(adminEndpoint(), "mcp_Admin365_ListLicenseTools", "list licenses", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -86,26 +65,16 @@ func (c *AdminSetLicenseCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(adminEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	addList := make([]map[string]any, 0, len(c.AddLicenses))
 	for _, sku := range c.AddLicenses {
 		addList = append(addList, map[string]any{"skuId": sku})
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "mcp_Admin365_LicenseMgmtTools", map[string]any{
+	data, err := ctx.CallToolData(adminEndpoint(), "mcp_Admin365_LicenseMgmtTools", "set license", map[string]any{
 		"userId":         c.UserID,
 		"addLicenses":    addList,
 		"removeLicenses": c.RemoveLicenses,
 	})
-	if err != nil {
-		return fmt.Errorf("set license: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
