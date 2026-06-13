@@ -57,17 +57,7 @@ func (c *MailSearchCmd) Run(ctx *commands.Context) error {
 	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "messages")
-	if rows == nil {
-		rows = output.ToRows(data, "value")
-	}
-	if rows == nil {
-		return ctx.Output.PrintItem(data)
-	}
-	if c.Max > 0 && len(rows) > c.Max {
-		rows = rows[:c.Max]
-	}
-	return ctx.Output.PrintList("messages", output.MailColumns, rows)
+	return ctx.Output.PrintListFromData("messages", output.MailColumns, data, c.Max, "messages", "value")
 }
 
 // MailSearchNLCmd searches emails with natural language.

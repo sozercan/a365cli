@@ -51,11 +51,7 @@ func (c *ChatsListCmd) Run(ctx *commands.Context) error {
 	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "chats")
-	if c.Max > 0 && len(rows) > c.Max {
-		rows = rows[:c.Max]
-	}
-	return ctx.Output.PrintList("chats", output.ChatsColumns, rows)
+	return ctx.Output.PrintListFromData("chats", output.ChatsColumns, data, c.Max)
 }
 
 // ChatsGetCmd gets a specific chat.
@@ -86,11 +82,7 @@ func (c *ChatsMessagesCmd) Run(ctx *commands.Context) error {
 	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "messages")
-	if c.Max > 0 && len(rows) > c.Max {
-		rows = rows[:c.Max]
-	}
-	return ctx.Output.PrintList("messages", output.MessagesColumns, rows)
+	return ctx.Output.PrintListFromData("messages", output.MessagesColumns, data, c.Max)
 }
 
 // ChatsSendCmd sends a message to a chat.
@@ -322,11 +314,7 @@ func (c *ChatsListMembersCmd) Run(ctx *commands.Context) error {
 	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "members")
-	if rows == nil {
-		rows = output.ToRows(data, "value")
-	}
-	return ctx.Output.PrintList("members", output.MembersColumns, rows)
+	return ctx.Output.PrintListFromData("members", output.MembersColumns, data, 0, "members", "value")
 }
 
 // ChatsAddMemberCmd adds a member to a chat.

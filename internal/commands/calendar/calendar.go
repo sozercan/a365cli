@@ -39,17 +39,7 @@ func (c *CalListCmd) Run(ctx *commands.Context) error {
 	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "events")
-	if rows == nil {
-		rows = output.ToRows(data, "value")
-	}
-	if rows == nil {
-		return ctx.Output.PrintItem(data)
-	}
-	if c.Max > 0 && len(rows) > c.Max {
-		rows = rows[:c.Max]
-	}
-	return ctx.Output.PrintList("events", output.CalendarColumns, rows)
+	return ctx.Output.PrintListFromData("events", output.CalendarColumns, data, c.Max, "events", "value")
 }
 
 // CalViewCmd lists events in a date range.
@@ -62,17 +52,7 @@ func (c *CalViewCmd) Run(ctx *commands.Context) error {
 	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "events")
-	if rows == nil {
-		rows = output.ToRows(data, "value")
-	}
-	if rows == nil {
-		return ctx.Output.PrintItem(data)
-	}
-	if c.Max > 0 && len(rows) > c.Max {
-		rows = rows[:c.Max]
-	}
-	return ctx.Output.PrintList("events", output.CalendarColumns, rows)
+	return ctx.Output.PrintListFromData("events", output.CalendarColumns, data, c.Max, "events", "value")
 }
 
 // CalCreateCmd creates a calendar event.

@@ -43,11 +43,7 @@ func (c *TeamsListCmd) Run(ctx *commands.Context) error {
 	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "teams")
-	if c.Max > 0 && len(rows) > c.Max {
-		rows = rows[:c.Max]
-	}
-	return ctx.Output.PrintList("teams", output.TeamsColumns, rows)
+	return ctx.Output.PrintListFromData("teams", output.TeamsColumns, data, c.Max)
 }
 
 // TeamsGetCmd gets a team by ID.

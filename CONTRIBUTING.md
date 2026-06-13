@@ -83,28 +83,11 @@ type MyServiceListCmd struct {
 }
 
 func (c *MyServiceListCmd) Run(ctx *commands.Context) error {
-    client := ctx.NewMCPClient(endpoint())
-    if err := client.Initialize(ctx.Ctx); err != nil {
-        return fmt.Errorf("initialize: %w", err)
-    }
-
-    resp, err := client.CallTool(ctx.Ctx, "ListItems", map[string]any{})
-    if err != nil {
-        return fmt.Errorf("list items: %w", err)
-    }
-
-    data, err := output.ExtractContent(resp)
+    data, err := ctx.CallToolData(endpoint(), "ListItems", "list items", map[string]any{})
     if err != nil {
         return err
     }
-    rows := output.ToRows(data, "items")
-    if rows == nil {
-        rows = output.ToRows(data, "value")
-    }
-    if rows == nil {
-        return ctx.Output.PrintItem(data)
-    }
-    return ctx.Output.PrintList("items", output.MyColumns, rows)
+    return ctx.Output.PrintListFromData("items", output.MyColumns, data, c.Max, "items", "value")
 }
 ```
 
@@ -148,7 +131,7 @@ go test ./internal/mcp/... -v    # MCP client tests only
 go test ./internal/output/... -v # Output formatting tests only
 ```
 
-The test suite uses `httptest.NewServer` for MCP client tests and `bytes.Buffer` injection for output formatter tests. Use `testutil.SetupTestServerWithSchemas` for dry-run tests that verify schema validation. No real network calls in tests.
+The test suite uses `httptest.NewServer` for MCP client tests, `commands.Context.CallToolData` tests for command execution, and `bytes.Buffer` injection for output formatter tests. Use `testutil.SetupTestServerWithSchemas` for dry-run tests that verify schema validation. No real network calls in tests.
 
 ## Discovering MCP Tools
 

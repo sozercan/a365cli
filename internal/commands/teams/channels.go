@@ -35,11 +35,7 @@ func (c *ChannelsListCmd) Run(ctx *commands.Context) error {
 	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "channels")
-	if c.Max > 0 && len(rows) > c.Max {
-		rows = rows[:c.Max]
-	}
-	return ctx.Output.PrintList("channels", output.ChannelsColumns, rows)
+	return ctx.Output.PrintListFromData("channels", output.ChannelsColumns, data, c.Max)
 }
 
 // ChannelsGetCmd gets a specific channel.
@@ -79,11 +75,7 @@ func (c *ChannelsMessagesCmd) Run(ctx *commands.Context) error {
 	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "messages")
-	if c.Max > 0 && len(rows) > c.Max {
-		rows = rows[:c.Max]
-	}
-	return ctx.Output.PrintList("messages", output.MessagesColumns, rows)
+	return ctx.Output.PrintListFromData("messages", output.MessagesColumns, data, c.Max)
 }
 
 // ChannelsPostCmd posts a message to a channel.
@@ -285,14 +277,7 @@ func (c *ChannelsListMembersCmd) Run(ctx *commands.Context) error {
 	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "members")
-	if rows == nil {
-		rows = output.ToRows(data, "value")
-	}
-	if c.Max > 0 && len(rows) > c.Max {
-		rows = rows[:c.Max]
-	}
-	return ctx.Output.PrintList("members", output.MembersColumns, rows)
+	return ctx.Output.PrintListFromData("members", output.MembersColumns, data, c.Max, "members", "value")
 }
 
 // ChannelsAddMemberCmd adds a member to a channel.

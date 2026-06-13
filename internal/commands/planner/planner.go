@@ -38,17 +38,7 @@ func (c *PlansListCmd) Run(ctx *commands.Context) error {
 	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "plans")
-	if rows == nil {
-		rows = output.ToRows(data, "value")
-	}
-	if rows == nil {
-		return ctx.Output.PrintItem(data)
-	}
-	if c.Max > 0 && len(rows) > c.Max {
-		rows = rows[:c.Max]
-	}
-	return ctx.Output.PrintList("plans", output.PlannerPlanColumns, rows)
+	return ctx.Output.PrintListFromData("plans", output.PlannerPlanColumns, data, c.Max, "plans", "value")
 }
 
 type PlansGetCmd struct {
@@ -120,17 +110,7 @@ func (c *TasksListCmd) Run(ctx *commands.Context) error {
 	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "tasks")
-	if rows == nil {
-		rows = output.ToRows(data, "value")
-	}
-	if rows == nil {
-		return ctx.Output.PrintItem(data)
-	}
-	if c.Max > 0 && len(rows) > c.Max {
-		rows = rows[:c.Max]
-	}
-	return ctx.Output.PrintList("tasks", output.PlannerTaskColumns, rows)
+	return ctx.Output.PrintListFromData("tasks", output.PlannerTaskColumns, data, c.Max, "tasks", "value")
 }
 
 type TasksGetCmd struct {

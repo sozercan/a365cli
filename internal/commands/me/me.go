@@ -58,14 +58,7 @@ func (c *MeSearchCmd) Run(ctx *commands.Context) error {
 		return err
 	}
 
-	rows := output.ToRows(data, "users")
-	if rows == nil {
-		rows = output.ToRows(data, "value")
-	}
-	if rows == nil {
-		return ctx.Output.PrintItem(data)
-	}
-	return ctx.Output.PrintList("users", output.UserColumns, rows)
+	return ctx.Output.PrintListFromData("users", output.UserColumns, data, 0, "users", "value")
 }
 
 // MeManagerCmd gets a user's manager.
@@ -96,12 +89,5 @@ func (c *MeReportsCmd) Run(ctx *commands.Context) error {
 		return err
 	}
 
-	rows := output.ToRows(data, "directReports")
-	if rows == nil {
-		rows = output.ToRows(data, "value")
-	}
-	if rows == nil {
-		return ctx.Output.PrintItem(data)
-	}
-	return ctx.Output.PrintList("directReports", output.UserColumns, rows)
+	return ctx.Output.PrintListFromData("directReports", output.UserColumns, data, 0, "directReports", "value")
 }
