@@ -10,9 +10,9 @@ import (
 
 // PlannerCmd groups all Planner subcommands.
 type PlannerCmd struct {
-	Plans  PlansCmd  `cmd:"" help:"Planner plans"`
-	Tasks  TasksCmd  `cmd:"" help:"Planner tasks"`
-	Goals  GoalsCmd  `cmd:"" help:"Planner goals"`
+	Plans PlansCmd `cmd:"" help:"Planner plans"`
+	Tasks TasksCmd `cmd:"" help:"Planner tasks"`
+	Goals GoalsCmd `cmd:"" help:"Planner goals"`
 }
 
 func plannerEndpoint() string {
@@ -34,15 +34,7 @@ type PlansListCmd struct {
 }
 
 func (c *PlansListCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(plannerEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "QueryPlans", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("list plans: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(plannerEndpoint(), "QueryPlans", "list plans", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -64,15 +56,7 @@ type PlansGetCmd struct {
 }
 
 func (c *PlansGetCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(plannerEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "GetPlan", map[string]any{"planId": c.ID})
-	if err != nil {
-		return fmt.Errorf("get plan: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(plannerEndpoint(), "GetPlan", "get plan", map[string]any{"planId": c.ID})
 	if err != nil {
 		return err
 	}
@@ -88,15 +72,7 @@ func (c *PlansCreateCmd) Run(ctx *commands.Context) error {
 		return ctx.ValidateDryRun(plannerEndpoint(), "CreatePlan", fmt.Sprintf("create plan %q", c.Title),
 			map[string]any{"action": "planner.create-plan", "title": c.Title})
 	}
-	client := ctx.NewMCPClient(plannerEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "CreatePlan", map[string]any{"title": c.Title})
-	if err != nil {
-		return fmt.Errorf("create plan: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(plannerEndpoint(), "CreatePlan", "create plan", map[string]any{"title": c.Title})
 	if err != nil {
 		return err
 	}
@@ -147,15 +123,7 @@ type TasksListCmd struct {
 }
 
 func (c *TasksListCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(plannerEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "QueryTasksInPlan", map[string]any{"planId": c.PlanID})
-	if err != nil {
-		return fmt.Errorf("list tasks: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(plannerEndpoint(), "QueryTasksInPlan", "list tasks", map[string]any{"planId": c.PlanID})
 	if err != nil {
 		return err
 	}
@@ -177,15 +145,7 @@ type TasksGetCmd struct {
 }
 
 func (c *TasksGetCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(plannerEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "GetTask", map[string]any{"taskId": c.ID})
-	if err != nil {
-		return fmt.Errorf("get task: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(plannerEndpoint(), "GetTask", "get task", map[string]any{"taskId": c.ID})
 	if err != nil {
 		return err
 	}
@@ -202,17 +162,9 @@ func (c *TasksCreateCmd) Run(ctx *commands.Context) error {
 		return ctx.ValidateDryRun(plannerEndpoint(), "CreateTask", fmt.Sprintf("create task %q in plan %s", c.Title, c.PlanID),
 			map[string]any{"action": "planner.create-task", "planId": c.PlanID, "title": c.Title})
 	}
-	client := ctx.NewMCPClient(plannerEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "CreateTask", map[string]any{
+	data, err := ctx.CallToolData(plannerEndpoint(), "CreateTask", "create task", map[string]any{
 		"planId": c.PlanID, "title": c.Title,
 	})
-	if err != nil {
-		return fmt.Errorf("create task: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -262,15 +214,7 @@ type GoalsListCmd struct {
 }
 
 func (c *GoalsListCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(plannerEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "QueryGoalsInPlan", map[string]any{"planId": c.PlanID})
-	if err != nil {
-		return fmt.Errorf("list goals: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(plannerEndpoint(), "QueryGoalsInPlan", "list goals", map[string]any{"planId": c.PlanID})
 	if err != nil {
 		return err
 	}
@@ -282,15 +226,7 @@ type GoalsGetCmd struct {
 }
 
 func (c *GoalsGetCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(plannerEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "GetGoal", map[string]any{"goalId": c.ID})
-	if err != nil {
-		return fmt.Errorf("get goal: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(plannerEndpoint(), "GetGoal", "get goal", map[string]any{"goalId": c.ID})
 	if err != nil {
 		return err
 	}
@@ -307,17 +243,9 @@ func (c *GoalsCreateCmd) Run(ctx *commands.Context) error {
 		return ctx.ValidateDryRun(plannerEndpoint(), "CreateGoal", fmt.Sprintf("create goal %q in plan %s", c.Title, c.PlanID),
 			map[string]any{"action": "planner.create-goal", "planId": c.PlanID, "title": c.Title})
 	}
-	client := ctx.NewMCPClient(plannerEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "CreateGoal", map[string]any{
+	data, err := ctx.CallToolData(plannerEndpoint(), "CreateGoal", "create goal", map[string]any{
 		"planId": c.PlanID, "title": c.Title,
 	})
-	if err != nil {
-		return fmt.Errorf("create goal: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}

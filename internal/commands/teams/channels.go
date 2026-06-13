@@ -29,19 +29,9 @@ type ChannelsListCmd struct {
 }
 
 func (c *ChannelsListCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "ListChannels", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "ListChannels", "list channels", map[string]any{
 		"teamId": c.TeamID,
 	})
-	if err != nil {
-		return fmt.Errorf("list channels: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -59,20 +49,10 @@ type ChannelsGetCmd struct {
 }
 
 func (c *ChannelsGetCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetChannel", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "GetChannel", "get channel", map[string]any{
 		"teamId":    c.TeamID,
 		"channelId": c.ChannelID,
 	})
-	if err != nil {
-		return fmt.Errorf("get channel: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -136,21 +116,11 @@ func (c *ChannelsPostCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "PostChannelMessage", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "PostChannelMessage", "post channel message", map[string]any{
 		"teamId":    c.TeamID,
 		"channelId": c.ChannelID,
 		"content":   c.Message,
 	})
-	if err != nil {
-		return fmt.Errorf("post channel message: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -179,22 +149,12 @@ func (c *ChannelsReplyCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "ReplyToChannelMessage", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "ReplyToChannelMessage", "reply to channel message", map[string]any{
 		"teamId":    c.TeamID,
 		"channelId": c.ChannelID,
 		"messageId": c.MessageID,
 		"content":   c.Message,
 	})
-	if err != nil {
-		return fmt.Errorf("reply to channel message: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -405,21 +365,11 @@ func (c *ChannelsAddMemberCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "AddChannelMember", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "AddChannelMember", "add channel member", map[string]any{
 		"teamId":    c.TeamID,
 		"channelId": c.ChannelID,
 		"userId":    c.UserID,
 	})
-	if err != nil {
-		return fmt.Errorf("add channel member: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -448,22 +398,12 @@ func (c *ChannelsUpdateMemberCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "UpdateChannelMember", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "UpdateChannelMember", "update channel member", map[string]any{
 		"teamId":       c.TeamID,
 		"channelId":    c.ChannelID,
 		"membershipId": c.MembershipID,
 		"role":         c.Role,
 	})
-	if err != nil {
-		return fmt.Errorf("update channel member: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}

@@ -1,8 +1,6 @@
 package me
 
 import (
-	"fmt"
-
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
 	"github.com/sozercan/a365cli/internal/output"
@@ -25,17 +23,7 @@ func meEndpoint() string {
 type MeWhoamiCmd struct{}
 
 func (c *MeWhoamiCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(meEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetMyDetails", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("get my details: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(meEndpoint(), "GetMyDetails", "get my details", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -48,19 +36,9 @@ type MeGetCmd struct {
 }
 
 func (c *MeGetCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(meEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetUserDetails", map[string]any{
+	data, err := ctx.CallToolData(meEndpoint(), "GetUserDetails", "get user", map[string]any{
 		"userIdentifier": c.User,
 	})
-	if err != nil {
-		return fmt.Errorf("get user: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -73,19 +51,9 @@ type MeSearchCmd struct {
 }
 
 func (c *MeSearchCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(meEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetMultipleUsersDetails", map[string]any{
+	data, err := ctx.CallToolData(meEndpoint(), "GetMultipleUsersDetails", "search users", map[string]any{
 		"searchValues": c.Query,
 	})
-	if err != nil {
-		return fmt.Errorf("search users: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -106,19 +74,9 @@ type MeManagerCmd struct {
 }
 
 func (c *MeManagerCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(meEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetManagerDetails", map[string]any{
+	data, err := ctx.CallToolData(meEndpoint(), "GetManagerDetails", "get manager", map[string]any{
 		"userId": c.UserID,
 	})
-	if err != nil {
-		return fmt.Errorf("get manager: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -131,19 +89,9 @@ type MeReportsCmd struct {
 }
 
 func (c *MeReportsCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(meEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetDirectReportsDetails", map[string]any{
+	data, err := ctx.CallToolData(meEndpoint(), "GetDirectReportsDetails", "get reports", map[string]any{
 		"userId": c.UserID,
 	})
-	if err != nil {
-		return fmt.Errorf("get reports: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}

@@ -297,21 +297,11 @@ func (c *SPMkdirCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "createFolder", map[string]any{
+	data, err := ctx.CallToolData(spEndpoint(), "createFolder", "create folder", map[string]any{
 		"driveId":    c.DriveID,
 		"parentPath": c.ParentPath,
 		"folderName": c.FolderName,
 	})
-	if err != nil {
-		return fmt.Errorf("create folder: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -398,22 +388,12 @@ func (c *SPUploadCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "uploadFileFromUrl", map[string]any{
+	data, err := ctx.CallToolData(spEndpoint(), "uploadFileFromUrl", "upload file", map[string]any{
 		"sourceUrl":             c.SourceURL,
 		"destinationDriveId":    c.DestinationDriveID,
 		"destinationFolderPath": c.DestinationFolderPath,
 		"fileName":              c.FileName,
 	})
-	if err != nil {
-		return fmt.Errorf("upload file: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -505,22 +485,12 @@ func (c *SPMoveCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "moveFileOrFolder", map[string]any{
+	data, err := ctx.CallToolData(spEndpoint(), "moveFileOrFolder", "move", map[string]any{
 		"sourceDriveId":         c.SourceDriveID,
 		"sourceItemPath":        c.SourceItemPath,
 		"destinationDriveId":    c.DestinationDriveID,
 		"destinationFolderPath": c.DestinationFolderPath,
 	})
-	if err != nil {
-		return fmt.Errorf("move: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -551,22 +521,12 @@ func (c *SPCopyCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "copyFileOrFolder", map[string]any{
+	data, err := ctx.CallToolData(spEndpoint(), "copyFileOrFolder", "copy", map[string]any{
 		"sourceDriveId":         c.SourceDriveID,
 		"sourceItemPath":        c.SourceItemPath,
 		"destinationDriveId":    c.DestinationDriveID,
 		"destinationFolderPath": c.DestinationFolderPath,
 	})
-	if err != nil {
-		return fmt.Errorf("copy: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -595,21 +555,11 @@ func (c *SPRenameCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "renameFileOrFolder", map[string]any{
+	data, err := ctx.CallToolData(spEndpoint(), "renameFileOrFolder", "rename", map[string]any{
 		"driveId":  c.DriveID,
 		"itemPath": c.ItemPath,
 		"newName":  c.NewName,
 	})
-	if err != nil {
-		return fmt.Errorf("rename: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -640,22 +590,12 @@ func (c *SPShareCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "shareFileOrFolder", map[string]any{
+	data, err := ctx.CallToolData(spEndpoint(), "shareFileOrFolder", "share", map[string]any{
 		"driveId":  c.DriveID,
 		"itemPath": c.ItemPath,
 		"type":     c.Type,
 		"scope":    c.Scope,
 	})
-	if err != nil {
-		return fmt.Errorf("share: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -684,21 +624,11 @@ func (c *SPLabelCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "setSensitivityLabelOnFile", map[string]any{
+	data, err := ctx.CallToolData(spEndpoint(), "setSensitivityLabelOnFile", "set label", map[string]any{
 		"driveId": c.DriveID,
 		"itemId":  c.ItemID,
 		"labelId": c.LabelID,
 	})
-	if err != nil {
-		return fmt.Errorf("set label: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -713,19 +643,9 @@ type SPStatusCmd struct {
 }
 
 func (c *SPStatusCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "checkOperationStatus", map[string]any{
+	data, err := ctx.CallToolData(spEndpoint(), "checkOperationStatus", "check status", map[string]any{
 		"operationUrl": c.OperationURL,
 	})
-	if err != nil {
-		return fmt.Errorf("check status: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}

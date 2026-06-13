@@ -10,19 +10,19 @@ import (
 
 // CalendarCmd groups all Calendar subcommands.
 type CalendarCmd struct {
-	List       CalListCmd       `cmd:"" help:"List upcoming events"`
-	View       CalViewCmd       `cmd:"" help:"List events in a date range"`
-	Create     CalCreateCmd     `cmd:"" help:"Create a calendar event"`
-	Update     CalUpdateCmd     `cmd:"" help:"Update a calendar event"`
-	Delete     CalDeleteCmd     `cmd:"" help:"Delete a calendar event"`
-	Accept     CalAcceptCmd     `cmd:"" help:"Accept a meeting invite"`
-	Tentative  CalTentativeCmd  `cmd:"" help:"Tentatively accept a meeting invite"`
-	Decline    CalDeclineCmd    `cmd:"" help:"Decline a meeting invite"`
-	Cancel     CalCancelCmd     `cmd:"" help:"Cancel a meeting you organized"`
-	Forward    CalForwardCmd    `cmd:"" help:"Forward a meeting invite"`
-	FreeBusy   CalFreeBusyCmd   `cmd:"" name:"free-busy" help:"Find available meeting times"`
-	TimeZone   CalTimeZoneCmd   `cmd:"" name:"timezone" help:"Get user date/time zone settings"`
-	Rooms      CalRoomsCmd      `cmd:"" help:"List available rooms"`
+	List      CalListCmd      `cmd:"" help:"List upcoming events"`
+	View      CalViewCmd      `cmd:"" help:"List events in a date range"`
+	Create    CalCreateCmd    `cmd:"" help:"Create a calendar event"`
+	Update    CalUpdateCmd    `cmd:"" help:"Update a calendar event"`
+	Delete    CalDeleteCmd    `cmd:"" help:"Delete a calendar event"`
+	Accept    CalAcceptCmd    `cmd:"" help:"Accept a meeting invite"`
+	Tentative CalTentativeCmd `cmd:"" help:"Tentatively accept a meeting invite"`
+	Decline   CalDeclineCmd   `cmd:"" help:"Decline a meeting invite"`
+	Cancel    CalCancelCmd    `cmd:"" help:"Cancel a meeting you organized"`
+	Forward   CalForwardCmd   `cmd:"" help:"Forward a meeting invite"`
+	FreeBusy  CalFreeBusyCmd  `cmd:"" name:"free-busy" help:"Find available meeting times"`
+	TimeZone  CalTimeZoneCmd  `cmd:"" name:"timezone" help:"Get user date/time zone settings"`
+	Rooms     CalRoomsCmd     `cmd:"" help:"List available rooms"`
 }
 
 func calEndpoint() string {
@@ -35,17 +35,7 @@ type CalListCmd struct {
 }
 
 func (c *CalListCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(calEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "ListEvents", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("list events: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(calEndpoint(), "ListEvents", "list events", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -68,17 +58,7 @@ type CalViewCmd struct {
 }
 
 func (c *CalViewCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(calEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "ListCalendarView", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("list calendar view: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(calEndpoint(), "ListCalendarView", "list calendar view", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -161,11 +141,11 @@ func (c *CalCreateCmd) Run(ctx *commands.Context) error {
 
 // CalUpdateCmd updates a calendar event.
 type CalUpdateCmd struct {
-	ID      string   `arg:"" help:"Event ID"`
-	Subject string   `help:"New subject" optional:""`
-	Start   string   `help:"New start time" optional:""`
-	End     string   `help:"New end time" optional:""`
-	Body    string   `help:"New body" optional:""`
+	ID      string `arg:"" help:"Event ID"`
+	Subject string `help:"New subject" optional:""`
+	Start   string `help:"New start time" optional:""`
+	End     string `help:"New end time" optional:""`
+	Body    string `help:"New body" optional:""`
 }
 
 func (c *CalUpdateCmd) Run(ctx *commands.Context) error {
@@ -221,17 +201,7 @@ func (c *CalDeleteCmd) Run(ctx *commands.Context) error {
 		return err
 	}
 
-	client := ctx.NewMCPClient(calEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "DeleteEventById", map[string]any{"eventId": c.ID})
-	if err != nil {
-		return fmt.Errorf("delete event: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(calEndpoint(), "DeleteEventById", "delete event", map[string]any{"eventId": c.ID})
 	if err != nil {
 		return err
 	}
@@ -249,15 +219,7 @@ func (c *CalAcceptCmd) Run(ctx *commands.Context) error {
 			map[string]any{"action": "calendar.accept", "eventId": c.ID})
 	}
 
-	client := ctx.NewMCPClient(calEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "AcceptEvent", map[string]any{"eventId": c.ID})
-	if err != nil {
-		return fmt.Errorf("accept: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(calEndpoint(), "AcceptEvent", "accept", map[string]any{"eventId": c.ID})
 	if err != nil {
 		return err
 	}
@@ -275,15 +237,7 @@ func (c *CalTentativeCmd) Run(ctx *commands.Context) error {
 			map[string]any{"action": "calendar.tentative", "eventId": c.ID})
 	}
 
-	client := ctx.NewMCPClient(calEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "TentativelyAcceptEvent", map[string]any{"eventId": c.ID})
-	if err != nil {
-		return fmt.Errorf("tentative accept: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(calEndpoint(), "TentativelyAcceptEvent", "tentative accept", map[string]any{"eventId": c.ID})
 	if err != nil {
 		return err
 	}
@@ -301,15 +255,7 @@ func (c *CalDeclineCmd) Run(ctx *commands.Context) error {
 			map[string]any{"action": "calendar.decline", "eventId": c.ID})
 	}
 
-	client := ctx.NewMCPClient(calEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "DeclineEvent", map[string]any{"eventId": c.ID})
-	if err != nil {
-		return fmt.Errorf("decline: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(calEndpoint(), "DeclineEvent", "decline", map[string]any{"eventId": c.ID})
 	if err != nil {
 		return err
 	}
@@ -330,15 +276,7 @@ func (c *CalCancelCmd) Run(ctx *commands.Context) error {
 		return err
 	}
 
-	client := ctx.NewMCPClient(calEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "CancelEvent", map[string]any{"eventId": c.ID})
-	if err != nil {
-		return fmt.Errorf("cancel: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(calEndpoint(), "CancelEvent", "cancel", map[string]any{"eventId": c.ID})
 	if err != nil {
 		return err
 	}
@@ -389,15 +327,7 @@ func (c *CalForwardCmd) Run(ctx *commands.Context) error {
 type CalFreeBusyCmd struct{}
 
 func (c *CalFreeBusyCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(calEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "FindMeetingTimes", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("find meeting times: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(calEndpoint(), "FindMeetingTimes", "find meeting times", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -408,15 +338,7 @@ func (c *CalFreeBusyCmd) Run(ctx *commands.Context) error {
 type CalTimeZoneCmd struct{}
 
 func (c *CalTimeZoneCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(calEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "GetUserDateAndTimeZoneSettings", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("get timezone: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(calEndpoint(), "GetUserDateAndTimeZoneSettings", "get timezone", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -427,15 +349,7 @@ func (c *CalTimeZoneCmd) Run(ctx *commands.Context) error {
 type CalRoomsCmd struct{}
 
 func (c *CalRoomsCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(calEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "GetRooms", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("get rooms: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(calEndpoint(), "GetRooms", "get rooms", map[string]any{})
 	if err != nil {
 		return err
 	}

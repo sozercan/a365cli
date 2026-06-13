@@ -10,12 +10,12 @@ import (
 
 // TeamsCmd groups all Teams subcommands.
 type TeamsCmd struct {
-	List     TeamsListCmd     `cmd:"" help:"List joined teams"`
-	Get      TeamsGetCmd      `cmd:"" help:"Get a team by ID"`
-	Channels ChannelsCmd      `cmd:"" help:"Team channels"`
-	Chats    ChatsCmd         `cmd:"" help:"Team chats"`
-	Search   SearchCmd        `cmd:"" help:"Search Teams messages (KQL)"`
-	SearchNL SearchNLCmd      `cmd:"" name:"search-nl" help:"Search Teams messages (natural language)"`
+	List     TeamsListCmd `cmd:"" help:"List joined teams"`
+	Get      TeamsGetCmd  `cmd:"" help:"Get a team by ID"`
+	Channels ChannelsCmd  `cmd:"" help:"Team channels"`
+	Chats    ChatsCmd     `cmd:"" help:"Team chats"`
+	Search   SearchCmd    `cmd:"" help:"Search Teams messages (KQL)"`
+	SearchNL SearchNLCmd  `cmd:"" name:"search-nl" help:"Search Teams messages (natural language)"`
 }
 
 // teamsEndpoint returns the agent365 endpoint for the Teams MCP server.
@@ -68,19 +68,9 @@ type TeamsGetCmd struct {
 }
 
 func (c *TeamsGetCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetTeam", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "GetTeam", "get team", map[string]any{
 		"teamId": c.ID,
 	})
-	if err != nil {
-		return fmt.Errorf("get team: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
