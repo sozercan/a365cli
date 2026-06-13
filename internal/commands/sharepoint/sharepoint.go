@@ -5,7 +5,6 @@ import (
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
-	"github.com/sozercan/a365cli/internal/output"
 )
 
 // spEndpoint returns the agent365 endpoint for the SharePoint MCP server.
@@ -42,11 +41,6 @@ type SPFindSiteCmd struct {
 }
 
 func (c *SPFindSiteCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{}
 	if c.Query != "" {
 		args["searchQuery"] = c.Query
@@ -55,12 +49,7 @@ func (c *SPFindSiteCmd) Run(ctx *commands.Context) error {
 		args["siteUrl"] = c.SiteUrl
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "findSite", args)
-	if err != nil {
-		return fmt.Errorf("find site: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(spEndpoint(), "findSite", "find site", args)
 	if err != nil {
 		return err
 	}
@@ -77,11 +66,6 @@ type SPListLibsCmd struct {
 }
 
 func (c *SPListLibsCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{}
 	if c.SiteID != "" {
 		args["siteId"] = c.SiteID
@@ -97,12 +81,7 @@ func (c *SPListLibsCmd) Run(ctx *commands.Context) error {
 		toolName = "listDocumentLibrariesInSite"
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, toolName, args)
-	if err != nil {
-		return fmt.Errorf("list libraries: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(spEndpoint(), toolName, "list libraries", args)
 	if err != nil {
 		return err
 	}
@@ -119,11 +98,6 @@ type SPListCmd struct {
 }
 
 func (c *SPListCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{
 		"driveId": c.DriveID,
 	}
@@ -134,12 +108,7 @@ func (c *SPListCmd) Run(ctx *commands.Context) error {
 		args["folderId"] = c.FolderID
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "getFolderChildren", args)
-	if err != nil {
-		return fmt.Errorf("list folder: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(spEndpoint(), "getFolderChildren", "list folder", args)
 	if err != nil {
 		return err
 	}
@@ -157,11 +126,6 @@ type SPGetCmd struct {
 }
 
 func (c *SPGetCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	var toolName string
 	args := map[string]any{}
 
@@ -181,12 +145,7 @@ func (c *SPGetCmd) Run(ctx *commands.Context) error {
 		}
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, toolName, args)
-	if err != nil {
-		return fmt.Errorf("get metadata: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(spEndpoint(), toolName, "get metadata", args)
 	if err != nil {
 		return err
 	}
@@ -204,11 +163,6 @@ type SPCatCmd struct {
 }
 
 func (c *SPCatCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{
 		"driveId": c.DriveID,
 	}
@@ -226,12 +180,7 @@ func (c *SPCatCmd) Run(ctx *commands.Context) error {
 		toolName = "readSmallTextFile"
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, toolName, args)
-	if err != nil {
-		return fmt.Errorf("read file: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(spEndpoint(), toolName, "read file", args)
 	if err != nil {
 		return err
 	}
@@ -248,11 +197,6 @@ type SPSearchCmd struct {
 }
 
 func (c *SPSearchCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{
 		"searchQuery": c.Query,
 	}
@@ -263,12 +207,7 @@ func (c *SPSearchCmd) Run(ctx *commands.Context) error {
 		args["siteId"] = c.SiteID
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "findFileOrFolder", args)
-	if err != nil {
-		return fmt.Errorf("search: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(spEndpoint(), "findFileOrFolder", "search", args)
 	if err != nil {
 		return err
 	}
@@ -332,11 +271,6 @@ func (c *SPWriteCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	var toolName string
 	args := map[string]any{
 		"driveId":    c.DriveID,
@@ -352,12 +286,7 @@ func (c *SPWriteCmd) Run(ctx *commands.Context) error {
 		args["content"] = c.Content
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, toolName, args)
-	if err != nil {
-		return fmt.Errorf("create file: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(spEndpoint(), toolName, "create file", args)
 	if err != nil {
 		return err
 	}
@@ -434,11 +363,6 @@ func (c *SPDeleteCmd) Run(ctx *commands.Context) error {
 		return err
 	}
 
-	client := ctx.NewMCPClient(spEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{
 		"driveId": c.DriveID,
 	}
@@ -449,12 +373,7 @@ func (c *SPDeleteCmd) Run(ctx *commands.Context) error {
 		args["itemId"] = c.ItemID
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "deleteFileOrFolder", args)
-	if err != nil {
-		return fmt.Errorf("delete: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(spEndpoint(), "deleteFileOrFolder", "delete", args)
 	if err != nil {
 		return err
 	}

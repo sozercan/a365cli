@@ -32,11 +32,6 @@ type ChatsListCmd struct {
 }
 
 func (c *ChatsListCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{}
 	if len(c.UPNs) > 0 {
 		args["userUpns"] = c.UPNs
@@ -52,12 +47,7 @@ func (c *ChatsListCmd) Run(ctx *commands.Context) error {
 		args["top"] = c.Max
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "ListChats", args)
-	if err != nil {
-		return fmt.Errorf("list chats: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(teamsEndpoint(), "ListChats", "list chats", args)
 	if err != nil {
 		return err
 	}
@@ -192,11 +182,6 @@ func (c *ChatsCreateCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{
 		"chatType":     c.Type,
 		"members_upns": c.Members,
@@ -205,12 +190,7 @@ func (c *ChatsCreateCmd) Run(ctx *commands.Context) error {
 		args["topic"] = c.Topic
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "CreateChat", args)
-	if err != nil {
-		return fmt.Errorf("create chat: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(teamsEndpoint(), "CreateChat", "create chat", args)
 	if err != nil {
 		return err
 	}

@@ -6,7 +6,6 @@ import (
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
-	"github.com/sozercan/a365cli/internal/output"
 )
 
 // SPListsCmd groups all SharePoint Lists subcommands.
@@ -38,19 +37,11 @@ type SPLSitesCmd struct {
 }
 
 func (c *SPLSitesCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
 	args := map[string]any{}
 	if c.Query != "" {
 		args["searchQuery"] = c.Query
 	}
-	resp, err := client.CallTool(ctx.Ctx, "searchSitesByName", args)
-	if err != nil {
-		return fmt.Errorf("search sites: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(spListsEndpoint(), "searchSitesByName", "search sites", args)
 	if err != nil {
 		return err
 	}
@@ -251,10 +242,7 @@ func (c *SPLUpdateItemCmd) Run(ctx *commands.Context) error {
 			map[string]any{"action": "sp-lists.update-item", "siteId": c.SiteID, "listId": c.ListID, "itemId": c.ItemID},
 		)
 	}
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
+
 	args := map[string]any{
 		"siteId": c.SiteID,
 		"listId": c.ListID,
@@ -267,11 +255,7 @@ func (c *SPLUpdateItemCmd) Run(ctx *commands.Context) error {
 		}
 		args["fields"] = fields
 	}
-	resp, err := client.CallTool(ctx.Ctx, "updateListItem", args)
-	if err != nil {
-		return fmt.Errorf("update item: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(spListsEndpoint(), "updateListItem", "update item", args)
 	if err != nil {
 		return err
 	}
@@ -295,10 +279,7 @@ func (c *SPLEditColCmd) Run(ctx *commands.Context) error {
 			map[string]any{"action": "sp-lists.edit-column", "siteId": c.SiteID, "listId": c.ListID, "columnId": c.ColumnID},
 		)
 	}
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
+
 	args := map[string]any{
 		"siteId":   c.SiteID,
 		"listId":   c.ListID,
@@ -307,11 +288,7 @@ func (c *SPLEditColCmd) Run(ctx *commands.Context) error {
 	if c.Name != "" {
 		args["name"] = c.Name
 	}
-	resp, err := client.CallTool(ctx.Ctx, "editListColumn", args)
-	if err != nil {
-		return fmt.Errorf("edit column: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(spListsEndpoint(), "editListColumn", "edit column", args)
 	if err != nil {
 		return err
 	}

@@ -5,7 +5,6 @@ import (
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
-	"github.com/sozercan/a365cli/internal/output"
 )
 
 // odrEndpoint returns the agent365 endpoint for the OneDrive Remote MCP server.
@@ -81,11 +80,6 @@ type ODRGetCmd struct {
 }
 
 func (c *ODRGetCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(odrEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	var toolName string
 	args := map[string]any{}
 
@@ -99,12 +93,7 @@ func (c *ODRGetCmd) Run(ctx *commands.Context) error {
 		}
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, toolName, args)
-	if err != nil {
-		return fmt.Errorf("get metadata: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(odrEndpoint(), toolName, "get metadata", args)
 	if err != nil {
 		return err
 	}

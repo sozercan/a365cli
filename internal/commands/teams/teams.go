@@ -1,8 +1,6 @@
 package teams
 
 import (
-	"fmt"
-
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
 	"github.com/sozercan/a365cli/internal/output"
@@ -34,11 +32,6 @@ type TeamsListCmd struct {
 }
 
 func (c *TeamsListCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{}
 	if c.UserID != "" {
 		args["userId"] = c.UserID
@@ -46,12 +39,7 @@ func (c *TeamsListCmd) Run(ctx *commands.Context) error {
 		args["userId"] = ctx.UserUPN
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "ListTeams", args)
-	if err != nil {
-		return fmt.Errorf("list teams: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(teamsEndpoint(), "ListTeams", "list teams", args)
 	if err != nil {
 		return err
 	}

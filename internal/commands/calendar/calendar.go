@@ -109,11 +109,6 @@ func (c *CalCreateCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(calEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{
 		"subject":        c.Subject,
 		"startDateTime":  c.Start,
@@ -127,12 +122,7 @@ func (c *CalCreateCmd) Run(ctx *commands.Context) error {
 		args["isOnlineMeeting"] = true
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "CreateEvent", args)
-	if err != nil {
-		return fmt.Errorf("create event: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(calEndpoint(), "CreateEvent", "create event", args)
 	if err != nil {
 		return err
 	}
@@ -156,11 +146,6 @@ func (c *CalUpdateCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(calEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{"eventId": c.ID}
 	if c.Subject != "" {
 		args["subject"] = c.Subject
@@ -175,12 +160,7 @@ func (c *CalUpdateCmd) Run(ctx *commands.Context) error {
 		args["body"] = c.Body
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "UpdateEvent", args)
-	if err != nil {
-		return fmt.Errorf("update event: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(calEndpoint(), "UpdateEvent", "update event", args)
 	if err != nil {
 		return err
 	}
@@ -302,21 +282,12 @@ func (c *CalForwardCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(calEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{"eventId": c.ID, "recipientEmails": c.Recipients}
 	if c.Comment != "" {
 		args["comment"] = c.Comment
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "ForwardEvent", args)
-	if err != nil {
-		return fmt.Errorf("forward: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(calEndpoint(), "ForwardEvent", "forward", args)
 	if err != nil {
 		return err
 	}

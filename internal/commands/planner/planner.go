@@ -89,19 +89,12 @@ func (c *PlansUpdateCmd) Run(ctx *commands.Context) error {
 		return ctx.ValidateDryRun(plannerEndpoint(), "UpdatePlan", fmt.Sprintf("update plan %s", c.ID),
 			map[string]any{"action": "planner.update-plan", "planId": c.ID})
 	}
-	client := ctx.NewMCPClient(plannerEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
+
 	args := map[string]any{"planId": c.ID}
 	if c.Title != "" {
 		args["title"] = c.Title
 	}
-	resp, err := client.CallTool(ctx.Ctx, "UpdatePlan", args)
-	if err != nil {
-		return fmt.Errorf("update plan: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(plannerEndpoint(), "UpdatePlan", "update plan", args)
 	if err != nil {
 		return err
 	}
@@ -181,19 +174,12 @@ func (c *TasksUpdateCmd) Run(ctx *commands.Context) error {
 		return ctx.ValidateDryRun(plannerEndpoint(), "UpdateTask", fmt.Sprintf("update task %s", c.ID),
 			map[string]any{"action": "planner.update-task", "taskId": c.ID})
 	}
-	client := ctx.NewMCPClient(plannerEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
+
 	args := map[string]any{"taskId": c.ID}
 	if c.Title != "" {
 		args["title"] = c.Title
 	}
-	resp, err := client.CallTool(ctx.Ctx, "UpdateTask", args)
-	if err != nil {
-		return fmt.Errorf("update task: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(plannerEndpoint(), "UpdateTask", "update task", args)
 	if err != nil {
 		return err
 	}
@@ -262,19 +248,12 @@ func (c *GoalsUpdateCmd) Run(ctx *commands.Context) error {
 		return ctx.ValidateDryRun(plannerEndpoint(), "UpdateGoal", fmt.Sprintf("update goal %s", c.ID),
 			map[string]any{"action": "planner.update-goal", "goalId": c.ID})
 	}
-	client := ctx.NewMCPClient(plannerEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
+
 	args := map[string]any{"goalId": c.ID}
 	if c.Title != "" {
 		args["title"] = c.Title
 	}
-	resp, err := client.CallTool(ctx.Ctx, "UpdateGoal", args)
-	if err != nil {
-		return fmt.Errorf("update goal: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(plannerEndpoint(), "UpdateGoal", "update goal", args)
 	if err != nil {
 		return err
 	}
