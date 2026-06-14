@@ -39,6 +39,27 @@ func (c *Context) NewMCPClient(endpoint string) *mcp.Client {
 	return client
 }
 
+// CallToolData initializes the MCP server, invokes one tool, and extracts the
+// domain data from the MCP response. It centralizes the standard command
+// execution path so handlers only describe the tool name, arguments, and
+// rendering behavior.
+func (c *Context) CallToolData(endpoint, toolName, action string, args map[string]any) (map[string]any, error) {
+	client := c.NewMCPClient(endpoint)
+	if err := client.Initialize(c.Ctx); err != nil {
+		return nil, fmt.Errorf("initialize: %w", err)
+	}
+
+	resp, err := client.CallTool(c.Ctx, toolName, args)
+	if err != nil {
+		if action == "" {
+			action = toolName
+		}
+		return nil, fmt.Errorf("%s: %w", action, err)
+	}
+
+	return output.ExtractContent(resp)
+}
+
 // EnsureAuth checks that the user is authenticated and sets up the token provider.
 // If no cached auth record exists (e.g., after logout), it performs a full
 // interactive login to re-establish credentials.

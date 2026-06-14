@@ -1,11 +1,8 @@
 package dasearch
 
 import (
-	"fmt"
-
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
-	"github.com/sozercan/a365cli/internal/output"
 )
 
 // DASearchCmd groups Declarative Agent Search subcommands.
@@ -21,17 +18,7 @@ func dasearchEndpoint() string {
 type DASearchAgentsCmd struct{}
 
 func (c *DASearchAgentsCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(dasearchEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "M365_Copilot_Get_Available_Agents", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("list agents: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(dasearchEndpoint(), "M365_Copilot_Get_Available_Agents", "list agents", map[string]any{})
 	if err != nil {
 		return err
 	}

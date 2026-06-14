@@ -5,7 +5,6 @@ import (
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
-	"github.com/sozercan/a365cli/internal/output"
 )
 
 // admin365Endpoint returns the agent365 endpoint for the Admin365 MCP server.
@@ -15,7 +14,7 @@ func admin365Endpoint() string {
 
 // Admin365Cmd groups all Admin365 subcommands.
 type Admin365Cmd struct {
-	BulkAdd       Admin365BulkAddCmd      `cmd:"" name:"bulk-add" help:"Bulk add users to tenant"`
+	BulkAdd       Admin365BulkAddCmd       `cmd:"" name:"bulk-add" help:"Bulk add users to tenant"`
 	AgentAccess   Admin365AgentAccessCmd   `cmd:"" name:"agent-access" help:"Get agent access settings"`
 	AgentSharing  Admin365AgentSharingCmd  `cmd:"" name:"agent-sharing" help:"Get agent sharing settings"`
 	MsApps        Admin365MsAppsCmd        `cmd:"" name:"ms-apps" help:"Get Microsoft apps install settings"`
@@ -49,19 +48,9 @@ func (c *Admin365BulkAddCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(admin365Endpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "BulkAddUsers", map[string]any{
+	data, err := ctx.CallToolData(admin365Endpoint(), "BulkAddUsers", "bulk add users", map[string]any{
 		"fileContent": c.FileContent,
 	})
-	if err != nil {
-		return fmt.Errorf("bulk add users: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -74,17 +63,7 @@ func (c *Admin365BulkAddCmd) Run(ctx *commands.Context) error {
 type Admin365AgentAccessCmd struct{}
 
 func (c *Admin365AgentAccessCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(admin365Endpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetWhoCanAccessAgentsSettings", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("get agent access settings: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(admin365Endpoint(), "GetWhoCanAccessAgentsSettings", "get agent access settings", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -97,17 +76,7 @@ func (c *Admin365AgentAccessCmd) Run(ctx *commands.Context) error {
 type Admin365AgentSharingCmd struct{}
 
 func (c *Admin365AgentSharingCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(admin365Endpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetWhoCanShareAgentsOrgWideSettings", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("get agent sharing settings: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(admin365Endpoint(), "GetWhoCanShareAgentsOrgWideSettings", "get agent sharing settings", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -120,17 +89,7 @@ func (c *Admin365AgentSharingCmd) Run(ctx *commands.Context) error {
 type Admin365MsAppsCmd struct{}
 
 func (c *Admin365MsAppsCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(admin365Endpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetCanInstallMicrosoftAppsAndAgentsSettings", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("get Microsoft apps settings: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(admin365Endpoint(), "GetCanInstallMicrosoftAppsAndAgentsSettings", "get Microsoft apps settings", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -143,17 +102,7 @@ func (c *Admin365MsAppsCmd) Run(ctx *commands.Context) error {
 type Admin365ThirdPartyCmd struct{}
 
 func (c *Admin365ThirdPartyCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(admin365Endpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetCanInstallThirdPartyAppsAndAgentsSettings", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("get third-party apps settings: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(admin365Endpoint(), "GetCanInstallThirdPartyAppsAndAgentsSettings", "get third-party apps settings", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -166,17 +115,7 @@ func (c *Admin365ThirdPartyCmd) Run(ctx *commands.Context) error {
 type Admin365LobAppsCmd struct{}
 
 func (c *Admin365LobAppsCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(admin365Endpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetCanInstallLOBAppsAndAgentsSettings", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("get LOB apps settings: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(admin365Endpoint(), "GetCanInstallLOBAppsAndAgentsSettings", "get LOB apps settings", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -201,19 +140,9 @@ func (c *Admin365SetAccessCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(admin365Endpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "UpdateWhoCanAccessAgentsSettings", map[string]any{
+	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateWhoCanAccessAgentsSettings", "update agent access", map[string]any{
 		"accessLevel": c.AccessLevel,
 	})
-	if err != nil {
-		return fmt.Errorf("update agent access: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -238,19 +167,9 @@ func (c *Admin365SetSharingCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(admin365Endpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "UpdateWhoCanShareAgentsOrgWideSettings", map[string]any{
+	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateWhoCanShareAgentsOrgWideSettings", "update agent sharing", map[string]any{
 		"accessLevel": c.AccessLevel,
 	})
-	if err != nil {
-		return fmt.Errorf("update agent sharing: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -275,19 +194,9 @@ func (c *Admin365SetMsAppsCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(admin365Endpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "UpdateCanInstallMicrosoftAppsAndAgentsSettings", map[string]any{
+	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateCanInstallMicrosoftAppsAndAgentsSettings", "update Microsoft apps settings", map[string]any{
 		"allowed": c.Allowed,
 	})
-	if err != nil {
-		return fmt.Errorf("update Microsoft apps settings: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -312,19 +221,9 @@ func (c *Admin365SetThirdPartyCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(admin365Endpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "UpdateCanInstallThirdPartyAppsAndAgentsSettings", map[string]any{
+	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateCanInstallThirdPartyAppsAndAgentsSettings", "update third-party apps settings", map[string]any{
 		"allowed": c.Allowed,
 	})
-	if err != nil {
-		return fmt.Errorf("update third-party apps settings: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -349,19 +248,9 @@ func (c *Admin365SetLobAppsCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(admin365Endpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "UpdateCanInstallLOBAppsAndAgentsSettings", map[string]any{
+	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateCanInstallLOBAppsAndAgentsSettings", "update LOB apps settings", map[string]any{
 		"allowed": c.Allowed,
 	})
-	if err != nil {
-		return fmt.Errorf("update LOB apps settings: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -374,17 +263,7 @@ func (c *Admin365SetLobAppsCmd) Run(ctx *commands.Context) error {
 type Admin365ReadinessCmd struct{}
 
 func (c *Admin365ReadinessCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(admin365Endpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetCopilotReadiness", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("get Copilot readiness: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(admin365Endpoint(), "GetCopilotReadiness", "get Copilot readiness", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -397,17 +276,7 @@ func (c *Admin365ReadinessCmd) Run(ctx *commands.Context) error {
 type Admin365CopilotStatusCmd struct{}
 
 func (c *Admin365CopilotStatusCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(admin365Endpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetCopilotAdminSettings", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("get Copilot admin settings: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(admin365Endpoint(), "GetCopilotAdminSettings", "get Copilot admin settings", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -432,19 +301,9 @@ func (c *Admin365SetCopilotCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(admin365Endpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "UpdateCopilotAdminSettings", map[string]any{
+	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateCopilotAdminSettings", "update Copilot admin settings", map[string]any{
 		"isEnabled": c.IsEnabled,
 	})
-	if err != nil {
-		return fmt.Errorf("update Copilot admin settings: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}

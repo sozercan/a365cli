@@ -1,11 +1,8 @@
 package nlweb
 
 import (
-	"fmt"
-
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
-	"github.com/sozercan/a365cli/internal/output"
 )
 
 // NLWebCmd groups NLWeb search subcommands.
@@ -25,19 +22,9 @@ type NLWebAskCmd struct {
 }
 
 func (c *NLWebAskCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(nlwebEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "ask", map[string]any{
+	data, err := ctx.CallToolData(nlwebEndpoint(), "ask", "ask", map[string]any{
 		"query": c.Query,
 	})
-	if err != nil {
-		return fmt.Errorf("ask: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -50,19 +37,9 @@ type NLWebWhoCmd struct {
 }
 
 func (c *NLWebWhoCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(nlwebEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "who", map[string]any{
+	data, err := ctx.CallToolData(nlwebEndpoint(), "who", "who", map[string]any{
 		"query": c.Query,
 	})
-	if err != nil {
-		return fmt.Errorf("who: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -73,17 +50,7 @@ func (c *NLWebWhoCmd) Run(ctx *commands.Context) error {
 type NLWebSitesCmd struct{}
 
 func (c *NLWebSitesCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(nlwebEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "list_sites", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("list sites: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(nlwebEndpoint(), "list_sites", "list sites", map[string]any{})
 	if err != nil {
 		return err
 	}

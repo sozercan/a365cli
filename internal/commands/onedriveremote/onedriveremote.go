@@ -5,7 +5,6 @@ import (
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
-	"github.com/sozercan/a365cli/internal/output"
 )
 
 // odrEndpoint returns the agent365 endpoint for the OneDrive Remote MCP server.
@@ -35,17 +34,7 @@ type OneDriveRemoteCmd struct {
 type ODRInfoCmd struct{}
 
 func (c *ODRInfoCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(odrEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "getOnedrive", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("get OneDrive info: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(odrEndpoint(), "getOnedrive", "get OneDrive info", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -58,17 +47,7 @@ func (c *ODRInfoCmd) Run(ctx *commands.Context) error {
 type ODRLsCmd struct{}
 
 func (c *ODRLsCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(odrEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "getFolderChildrenInMyOnedrive", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("list folder: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(odrEndpoint(), "getFolderChildrenInMyOnedrive", "list folder", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -83,19 +62,9 @@ type ODRSearchCmd struct {
 }
 
 func (c *ODRSearchCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(odrEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "findFileOrFolderInMyDrive", map[string]any{
+	data, err := ctx.CallToolData(odrEndpoint(), "findFileOrFolderInMyDrive", "search", map[string]any{
 		"searchQuery": c.Query,
 	})
-	if err != nil {
-		return fmt.Errorf("search: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -111,11 +80,6 @@ type ODRGetCmd struct {
 }
 
 func (c *ODRGetCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(odrEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	var toolName string
 	args := map[string]any{}
 
@@ -129,12 +93,7 @@ func (c *ODRGetCmd) Run(ctx *commands.Context) error {
 		}
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, toolName, args)
-	if err != nil {
-		return fmt.Errorf("get metadata: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(odrEndpoint(), toolName, "get metadata", args)
 	if err != nil {
 		return err
 	}
@@ -149,19 +108,9 @@ type ODRCatCmd struct {
 }
 
 func (c *ODRCatCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(odrEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "readSmallTextFileFromMyOnedrive", map[string]any{
+	data, err := ctx.CallToolData(odrEndpoint(), "readSmallTextFileFromMyOnedrive", "read file", map[string]any{
 		"fileId": c.FileID,
 	})
-	if err != nil {
-		return fmt.Errorf("read file: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -186,19 +135,9 @@ func (c *ODRMkdirCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(odrEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "createFolderInMyOnedrive", map[string]any{
+	data, err := ctx.CallToolData(odrEndpoint(), "createFolderInMyOnedrive", "create folder", map[string]any{
 		"folderName": c.FolderName,
 	})
-	if err != nil {
-		return fmt.Errorf("create folder: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -225,20 +164,10 @@ func (c *ODRWriteCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(odrEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "createSmallTextFileInMyOnedrive", map[string]any{
+	data, err := ctx.CallToolData(odrEndpoint(), "createSmallTextFileInMyOnedrive", "create file", map[string]any{
 		"filename":    c.Filename,
 		"contentText": c.ContentText,
 	})
-	if err != nil {
-		return fmt.Errorf("create file: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -262,26 +191,16 @@ func (c *ODRRenameCmd) Run(ctx *commands.Context) error {
 				"action":              "onedrive-remote.rename",
 				"fileOrFolderId":      c.FileOrFolderID,
 				"newFileOrFolderName": c.NewFileOrFolderName,
-				"etag":               c.Etag,
+				"etag":                c.Etag,
 			},
 		)
 	}
 
-	client := ctx.NewMCPClient(odrEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "renameFileOrFolderInMyOnedrive", map[string]any{
+	data, err := ctx.CallToolData(odrEndpoint(), "renameFileOrFolderInMyOnedrive", "rename", map[string]any{
 		"fileOrFolderId":      c.FileOrFolderID,
 		"newFileOrFolderName": c.NewFileOrFolderName,
 		"etag":                c.Etag,
 	})
-	if err != nil {
-		return fmt.Errorf("rename: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -305,26 +224,16 @@ func (c *ODRMvCmd) Run(ctx *commands.Context) error {
 				"action":            "onedrive-remote.mv",
 				"fileId":            c.FileID,
 				"newParentFolderId": c.NewParentFolderID,
-				"etag":             c.Etag,
+				"etag":              c.Etag,
 			},
 		)
 	}
 
-	client := ctx.NewMCPClient(odrEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "moveSmallFileInMyOnedrive", map[string]any{
+	data, err := ctx.CallToolData(odrEndpoint(), "moveSmallFileInMyOnedrive", "move file", map[string]any{
 		"fileId":            c.FileID,
 		"newParentFolderId": c.NewParentFolderID,
 		"etag":              c.Etag,
 	})
-	if err != nil {
-		return fmt.Errorf("move file: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -355,20 +264,10 @@ func (c *ODRRmCmd) Run(ctx *commands.Context) error {
 		return err
 	}
 
-	client := ctx.NewMCPClient(odrEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "deleteFileOrFolderInMyOnedrive", map[string]any{
+	data, err := ctx.CallToolData(odrEndpoint(), "deleteFileOrFolderInMyOnedrive", "delete", map[string]any{
 		"fileOrFolderId": c.FileOrFolderID,
 		"etag":           c.Etag,
 	})
-	if err != nil {
-		return fmt.Errorf("delete: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -397,21 +296,11 @@ func (c *ODRShareCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(odrEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "shareFileOrFolderInMyOnedrive", map[string]any{
+	data, err := ctx.CallToolData(odrEndpoint(), "shareFileOrFolderInMyOnedrive", "share", map[string]any{
 		"fileOrFolderId":  c.FileOrFolderID,
 		"recipientEmails": c.RecipientEmails,
 		"roles":           c.Roles,
 	})
-	if err != nil {
-		return fmt.Errorf("share: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -438,20 +327,10 @@ func (c *ODRLabelCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(odrEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "setSensitivityLabelOnFileInMyOnedrive", map[string]any{
+	data, err := ctx.CallToolData(odrEndpoint(), "setSensitivityLabelOnFileInMyOnedrive", "set label", map[string]any{
 		"fileId":             c.FileID,
 		"sensitivityLabelId": c.SensitivityLabelID,
 	})
-	if err != nil {
-		return fmt.Errorf("set label: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}

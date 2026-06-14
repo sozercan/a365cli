@@ -478,3 +478,70 @@ func TestPrintList_EmptyRows(t *testing.T) {
 		})
 	}
 }
+
+func TestRowsFromData_FirstMatchingKeyAndMax(t *testing.T) {
+	data := map[string]any{
+		"value": []any{
+			map[string]any{"name": "one"},
+			map[string]any{"name": "two"},
+		},
+	}
+
+	rows := RowsFromData(data, 1, "missing", "value")
+	if len(rows) != 1 {
+		t.Fatalf("expected one row after max trim, got %d", len(rows))
+	}
+	if rows[0]["name"] != "one" {
+		t.Fatalf("expected first row, got %#v", rows[0])
+	}
+}
+
+func TestRowsFromData_MissingListReturnsNil(t *testing.T) {
+	rows := RowsFromData(map[string]any{"message": "ok"}, 0, "value")
+	if rows != nil {
+		t.Fatalf("expected nil rows for missing list, got %#v", rows)
+	}
+}
+
+func TestPrintListFromData_JSON(t *testing.T) {
+	var buf bytes.Buffer
+	f := &Formatter{Format: FormatJSON, Writer: &buf}
+	columns := []Column{{Header: "NAME", Extract: func(r map[string]any) string { return getString(r, "name") }}}
+	data := map[string]any{
+		"value": []any{
+			map[string]any{"name": "one"},
+			map[string]any{"name": "two"},
+		},
+	}
+
+	if err := f.PrintListFromData("items", columns, data, 1, "items", "value"); err != nil {
+		t.Fatalf("PrintListFromData failed: %v", err)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+	items, ok := parsed["items"].([]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("expected one item, got %#v", parsed["items"])
+	}
+}
+
+func TestPrintListFromData_FallsBackToItem(t *testing.T) {
+	var buf bytes.Buffer
+	f := &Formatter{Format: FormatJSON, Writer: &buf}
+	columns := []Column{{Header: "NAME", Extract: func(r map[string]any) string { return getString(r, "name") }}}
+
+	if err := f.PrintListFromData("items", columns, map[string]any{"message": "ok"}, 0, "items"); err != nil {
+		t.Fatalf("PrintListFromData failed: %v", err)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+	if parsed["message"] != "ok" {
+		t.Fatalf("expected fallback item, got %#v", parsed)
+	}
+}

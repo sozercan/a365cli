@@ -5,7 +5,6 @@ import (
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
-	"github.com/sozercan/a365cli/internal/output"
 )
 
 // KnowledgeCmd groups federated knowledge subcommands.
@@ -28,20 +27,10 @@ type KnowledgeQueryCmd struct {
 }
 
 func (c *KnowledgeQueryCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(knowledgeEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "query_federated_knowledge", map[string]any{
+	data, err := ctx.CallToolData(knowledgeEndpoint(), "query_federated_knowledge", "query", map[string]any{
 		"consumerId": c.ConsumerID,
 		"query":      c.Query,
 	})
-	if err != nil {
-		return fmt.Errorf("query: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -54,19 +43,9 @@ type KnowledgeListCmd struct {
 }
 
 func (c *KnowledgeListCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(knowledgeEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "retrieve_federated_knowledge", map[string]any{
+	data, err := ctx.CallToolData(knowledgeEndpoint(), "retrieve_federated_knowledge", "list", map[string]any{
 		"consumerId": c.ConsumerID,
 	})
-	if err != nil {
-		return fmt.Errorf("list: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -94,23 +73,13 @@ func (c *KnowledgeConfigureCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(knowledgeEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "configure_federated_knowledge", map[string]any{
+	data, err := ctx.CallToolData(knowledgeEndpoint(), "configure_federated_knowledge", "configure", map[string]any{
 		"consumerId":      c.ConsumerID,
 		"knowledgeConfig": map[string]any{},
 		"sourceType":      c.SourceType,
 		"displayName":     c.DisplayName,
 		"description":     c.Description,
 	})
-	if err != nil {
-		return fmt.Errorf("configure: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -135,20 +104,10 @@ func (c *KnowledgeIngestCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(knowledgeEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "ingest_federated_knowledge", map[string]any{
+	data, err := ctx.CallToolData(knowledgeEndpoint(), "ingest_federated_knowledge", "ingest", map[string]any{
 		"consumerId":            c.ConsumerID,
 		"searchConfigurationId": c.ConfigID,
 	})
-	if err != nil {
-		return fmt.Errorf("ingest: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -177,20 +136,10 @@ func (c *KnowledgeDeleteCmd) Run(ctx *commands.Context) error {
 		return err
 	}
 
-	client := ctx.NewMCPClient(knowledgeEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "delete_federated_knowledge", map[string]any{
+	data, err := ctx.CallToolData(knowledgeEndpoint(), "delete_federated_knowledge", "delete", map[string]any{
 		"searchConfigurationId": c.ConfigID,
 		"consumerId":            c.ConsumerID,
 	})
-	if err != nil {
-		return fmt.Errorf("delete: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}

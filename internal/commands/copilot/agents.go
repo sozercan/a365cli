@@ -42,17 +42,7 @@ func copilotAgentsEndpoint() string {
 }
 
 func fetchAvailableAgents(ctx *commands.Context) ([]agentInfo, error) {
-	client := ctx.NewMCPClient(copilotAgentsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return nil, fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, copilotAvailableAgentsTool, map[string]any{})
-	if err != nil {
-		return nil, fmt.Errorf("list Copilot agents: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(copilotAgentsEndpoint(), copilotAvailableAgentsTool, "list Copilot agents", map[string]any{})
 	if err != nil {
 		return nil, err
 	}

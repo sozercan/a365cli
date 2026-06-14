@@ -127,11 +127,6 @@ func callCopilot(ctx *commands.Context, message, conversationID, agentSelector s
 	stopSpinner := startCopilotSpinner(ctx)
 	defer stopSpinner()
 
-	client := ctx.NewMCPClient(copilotEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return nil, "", fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{
 		"enableWebSearch": enableWebSearch,
 		"message":         message,
@@ -144,12 +139,7 @@ func callCopilot(ctx *commands.Context, message, conversationID, agentSelector s
 	}
 
 	for attempt := 0; ; attempt++ {
-		resp, err := client.CallTool(ctx.Ctx, copilotChatTool, args)
-		if err != nil {
-			return nil, "", fmt.Errorf("copilot chat: %w", err)
-		}
-
-		data, err := output.ExtractContent(resp)
+		data, err := ctx.CallToolData(copilotEndpoint(), copilotChatTool, "copilot chat", args)
 		if err != nil {
 			return nil, "", err
 		}

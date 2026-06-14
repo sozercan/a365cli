@@ -32,8 +32,9 @@ Every command follows the same path:
 5. **Request** — `CallTool()` sends a JSON-RPC `tools/call` POST with `Authorization: Bearer` and `Mcp-Session-Id` headers
 6. **Retry** — on 502/503/429/504, retries up to 2x with exponential backoff (1s, 2s); respects `Retry-After` header
 7. **Response** — parses SSE stream (`data:` lines) or plain JSON; extracts the first JSON-RPC message
-8. **Extract** — `ExtractContent()` unwraps 3 response patterns (clean JSON, embedded JSON after status text, rawResponse-wrapped)
-9. **Render** — `PrintList`/`PrintItem`/`PrintMutation` dispatches to table (tabwriter), JSON, or TSV based on `--output`
+8. **Command execution seam** — command handlers use `Context.CallToolData()` to keep initialize → tool call → content extraction and action-scoped errors in one module
+9. **Extract** — `ExtractContent()` unwraps 3 response patterns (clean JSON, embedded JSON after status text, rawResponse-wrapped)
+10. **Render** — `PrintListFromData`/`PrintList`/`PrintItem`/`PrintMutation` dispatches to table (tabwriter), JSON, or TSV based on `--output`
 
 ## MCP Protocol
 
@@ -95,10 +96,11 @@ Browser ──PKCE──► Entra ID (login.microsoftonline.com)
 ## Output Pipeline
 
 ```
-MCP JSONRPCResponse
-    → ExtractContent()     (extract.go)    → map[string]any
-    → ToRows()             (extract.go)    → []map[string]any
-    → PrintList()          (formatter.go)  → format dispatch
+Command handler
+    → Context.CallToolData() (commands/root.go) → MCP JSONRPCResponse
+    → ExtractContent()       (extract.go)       → map[string]any
+    → PrintListFromData()    (formatter.go)     → ToRows() + fallback + max
+    → PrintList()            (formatter.go)     → format dispatch
         ├── FormatHuman → RenderTable()    (render.go)  → text/tabwriter
         ├── FormatJSON  → writeJSON()      (formatter.go) → json.Encoder
         └── FormatPlain → RenderTSV()      (render.go)  → raw tabs

@@ -144,17 +144,7 @@ func (c *APICallCmd) Run(ctx *commands.Context) error {
 		return fmt.Errorf("invalid JSON arguments: %w", err)
 	}
 
-	client := ctx.NewMCPClient(endpoint)
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, c.Tool, args)
-	if err != nil {
-		return fmt.Errorf("call %s: %w", c.Tool, err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(endpoint, c.Tool, fmt.Sprintf("call %s", c.Tool), args)
 	if err != nil {
 		return err
 	}
