@@ -150,15 +150,9 @@ func main() {
 	// For non-auth, non-completion, non-config commands, ensure authentication
 	cmd := kongCtx.Command()
 	authRequired := requiresAuth(cmd) || (cmd == "api servers" && cli.API.Servers.Probe)
-	if authRequired {
-		if err := validateServiceTenant(authRequired, os.Getenv("A365_ENDPOINT"), endpointTenantID); err != nil {
-			output.PrintError("%v", err)
-			os.Exit(1)
-		}
-		if err := ctx.EnsureAuth(); err != nil {
-			output.PrintError("%v", err)
-			os.Exit(1)
-		}
+	if err := prepareAuthenticatedCommand(ctx, authRequired, os.Getenv("A365_ENDPOINT"), endpointTenantID); err != nil {
+		output.PrintError("%v", err)
+		os.Exit(1)
 	}
 
 	// Run the selected command
@@ -169,8 +163,18 @@ func main() {
 	}
 }
 
-func validateServiceTenant(authRequired bool, endpointOverride, endpointTenantID string) error {
-	if authRequired && endpointOverride == "" && endpointTenantID == "" {
+func prepareAuthenticatedCommand(ctx *commands.Context, authRequired bool, endpointOverride, endpointTenantID string) error {
+	if !authRequired {
+		return nil
+	}
+	if err := ctx.EnsureAuth(); err != nil {
+		return err
+	}
+	return validateServiceTenant(endpointOverride, endpointTenantID)
+}
+
+func validateServiceTenant(endpointOverride, endpointTenantID string) error {
+	if endpointOverride == "" && endpointTenantID == "" {
 		return fmt.Errorf("a concrete Directory tenant ID is required for Agent 365 endpoints; set A365_TENANT_ID to the tenant GUID or remove a domain-valued override and sign in again")
 	}
 	return nil
