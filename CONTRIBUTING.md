@@ -13,7 +13,7 @@ See [docs/architecture.md](docs/architecture.md) for the full file layout and co
 ## Building
 
 ```bash
-A365_CODESIGN_IDENTITY="<certificate SHA-1 or exact identity name>" make build
+make build        # Auto-detect a valid local certificate-backed identity on macOS
 make build-adhoc  # Disposable native development build; ad-hoc signed on macOS
 make build-static # Portable pure-Go build without persistent OS token caching
 make test         # Run all tests with verbose output
@@ -58,12 +58,14 @@ token-cache item can cause repeated Keychain authorization dialogs.
 
 ### macOS signing policy
 
-`make build` and `make install` fail closed on macOS unless
-`A365_CODESIGN_IDENTITY` explicitly names a valid local certificate-backed
-codesigning identity. The Makefile does not auto-select the first certificate
-and does not silently fall back to ad-hoc signing. Canonical binaries use the
-stable identifier `com.github.sozercan.a365` and their resulting signature and
-identifier are verified before the target succeeds.
+`make build` and `make install` auto-select the first valid **Apple Development**
+identity on macOS, falling back to **Developer ID Application**. Set
+`A365_CODESIGN_IDENTITY` to a certificate SHA-1 or exact identity name to
+override the detected choice when multiple identities exist or a specific team
+must be used. The Makefile does not silently fall back to ad-hoc signing.
+Canonical binaries use the stable identifier `com.github.sozercan.a365`, and
+their resulting signature and identifier are verified before the target
+succeeds.
 
 Use `make build-adhoc` or `make install-adhoc` only when ad-hoc signing is an
 intentional, temporary choice. Do not put that build at the same canonical PATH

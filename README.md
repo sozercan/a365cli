@@ -79,12 +79,22 @@ builds.
 
 ### Build from source
 
-On macOS, the canonical native build requires an explicitly selected local
-codesigning identity:
+On macOS, the canonical native build automatically selects the first valid
+**Apple Development** codesigning identity, falling back to **Developer ID
+Application** when needed:
+
+```bash
+make build
+```
+
+Override the detected identity with a certificate SHA-1 or exact identity name:
 
 ```bash
 A365_CODESIGN_IDENTITY="<certificate SHA-1 or exact identity name>" make build
 ```
+
+If no valid certificate-backed identity exists, the build fails with guidance
+instead of silently producing an unstable canonical binary.
 
 Use `make build-adhoc` only for a disposable development binary. It is
 intentionally ad-hoc signed and may trigger a new Keychain authorization prompt
