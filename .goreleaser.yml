@@ -4,16 +4,57 @@ project_name: a365
 
 before:
   hooks:
-    - go test ./... -count=1
+    - /usr/bin/env A365_DISABLE_PERSISTENT_TOKEN_CACHE=1 go test ./... -count=1
+    - >-
+      /bin/sh -eu -c 'if [ -z "${A365_CODESIGN_IDENTITY:-}" ] ||
+      [ "$A365_CODESIGN_IDENTITY" = "-" ]; then
+      echo "A365_CODESIGN_IDENTITY must name a certificate-backed signing identity for release builds." >&2;
+      exit 1; fi'
 
 builds:
-  - id: a365
+  # Darwin must be built natively with CGO so the Azure auth cache can use
+  # macOS Keychain. The release workflow runs on macOS and provides a required
+  # Developer ID Application identity before these post-build hooks execute.
+  - id: a365-darwin
+    binary: a365
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/sozercan/a365cli/internal/version.Version={{.Version}}
+      - -X github.com/sozercan/a365cli/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sozercan/a365cli/internal/auth.persistentTokenCacheName=a365
+    hooks:
+      post:
+        - cmd: >-
+            /bin/sh -eu -c 'exec /usr/bin/codesign --force --options runtime
+            --timestamp --identifier com.github.sozercan.a365
+            --sign "$A365_CODESIGN_IDENTITY" "$1"' -- "{{ .Path }}"
+          output: true
+        - cmd: /usr/bin/codesign --verify --strict --verbose=2 "{{ .Path }}"
+          output: true
+        - cmd: >-
+            /bin/sh -eu -c 'go version -m "$1" | grep -q "CGO_ENABLED=1";
+            details=$(/usr/bin/codesign -dv --verbose=4 "$1" 2>&1);
+            printf "%s\n" "$details" | grep -q "^Authority=";
+            printf "%s\n" "$details" | grep -q "^Identifier=com.github.sozercan.a365$";
+            if printf "%s\n" "$details" | grep -q "^Signature=adhoc$"; then exit 1; fi' -- "{{ .Path }}"
+          output: true
+
+  # Linux and Windows remain pure-Go so they can be cross-compiled from the
+  # macOS release runner. These portable artifacts do not include the CGO-backed
+  # OS credential-store token cache.
+  - id: a365-portable
     binary: a365
     env:
       - CGO_ENABLED=0
     goos:
       - linux
-      - darwin
       - windows
     goarch:
       - amd64
@@ -25,13 +66,13 @@ builds:
       - -s -w
       - -X github.com/sozercan/a365cli/internal/version.Version={{.Version}}
       - -X github.com/sozercan/a365cli/internal/version.Commit={{.ShortCommit}}
-    hooks:
-      post:
-        - cmd: ./scripts/sign-darwin-binary.sh "{{ .Path }}" "{{ .Target }}"
-          output: true
+      - -X github.com/sozercan/a365cli/internal/auth.persistentTokenCacheName=a365
 
 archives:
   - id: default
+    ids:
+      - a365-darwin
+      - a365-portable
     formats:
       - tar.gz
     format_overrides:

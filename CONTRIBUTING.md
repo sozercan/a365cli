@@ -13,30 +13,88 @@ See [docs/architecture.md](docs/architecture.md) for the full file layout and co
 ## Building
 
 ```bash
-make build      # Build
-make build-static # Build without CGO / OS-backed token cache
-make test       # Run all tests with verbose output
-make test-short # Run tests without verbose output
-make lint       # Format + vet
-make clean      # Remove build artifacts
+A365_CODESIGN_IDENTITY="<certificate SHA-1 or exact identity name>" make build
+make build-adhoc  # Disposable native development build; ad-hoc signed on macOS
+make build-static # Portable pure-Go build without persistent OS token caching
+make test         # Run all tests with verbose output
+make test-short   # Run tests without verbose output
+make lint         # Format + vet
+make release-check # Statically validate .goreleaser.yml (requires GoReleaser)
+make clean        # Remove build artifacts
 ```
 
-The default native build uses CGO on macOS and Linux so the CLI can persist
-refresh tokens in the OS credential store. Use `make build-static` if you need
-a pure-Go build; auth still works, but token persistence falls back to the
-non-CGO path.
+The test targets set `A365_DISABLE_PERSISTENT_TOKEN_CACHE=1` so unit tests can
+compile native cache support without reading or writing a developer's real OS
+credential store.
 
-On macOS, `make build` and `make install` sign the binary after compilation.
-When an Apple Development signing identity is available, it is used so Keychain
-access remains stable across rebuilds. Without one, the build falls back to
-ad-hoc signing; the binary still builds, but Keychain may prompt again after
-rebuilds. Set `A365_CODESIGN_IDENTITY` to a certificate hash or name to override
-auto-detection.
+Source builds use the `a365-dev` token-cache namespace by default, while
+published releases use `a365`. This prevents local and release signatures from
+repeatedly taking ownership of the same Keychain item. Override with
+`A365_TOKEN_CACHE_NAME` only for controlled testing.
 
-Release builds also sign Darwin binaries before packaging. Configure
-`MACOS_CERTIFICATE`, `MACOS_CERTIFICATE_PWD`, and `MACOS_KEYCHAIN_PWD` GitHub
-Actions secrets to use certificate-backed signing. Without those secrets, Darwin
-release binaries are signed ad-hoc.
+### Native and portable builds
+
+| Build | CGO | Token-cache behavior | Intended use |
+|-------|-----|----------------------|--------------|
+| `make build` / `make build-cgo` | Enabled | macOS Keychain or the supported Linux OS credential store | Canonical native development/install build |
+| `make build-adhoc` | Enabled | Same native cache code, but executable authorization may change after replacement | Disposable macOS development only |
+| `make build-static` | Disabled | No persistent OS-backed cache between CLI processes | Portable and cross-compiled artifacts |
+
+The static build still authenticates, but a later interactive CLI process may
+open the browser again because the non-CGO cache implementation does not persist
+refresh tokens. `--no-input` disables that fallback.
+
+For portable Linux and Windows cross-builds, use the static target explicitly:
+
+```bash
+make build-static GOOS=linux GOARCH=amd64 BINARY=/tmp/a365-linux-amd64
+make build-static GOOS=windows GOARCH=amd64 BINARY=/tmp/a365-windows-amd64.exe
+```
+
+Do not use raw `go build` or `go install` to replace the canonical macOS binary.
+Those commands bypass the repository signing policy. Alternating between
+unsigned, ad-hoc-signed, and certificate-signed executables that share the same
+token-cache item can cause repeated Keychain authorization dialogs.
+
+### macOS signing policy
+
+`make build` and `make install` fail closed on macOS unless
+`A365_CODESIGN_IDENTITY` explicitly names a valid local certificate-backed
+codesigning identity. The Makefile does not auto-select the first certificate
+and does not silently fall back to ad-hoc signing. Canonical binaries use the
+stable identifier `com.github.sozercan.a365` and their resulting signature and
+identifier are verified before the target succeeds.
+
+Use `make build-adhoc` or `make install-adhoc` only when ad-hoc signing is an
+intentional, temporary choice. Do not put that build at the same canonical PATH
+location as a certificate-signed binary if you want stable Keychain approval.
+Adopting the fixed identifier or a new certificate can require one deliberate
+approval; subsequent canonical builds should retain both values.
+
+### Release matrix and signing
+
+GoReleaser uses two disjoint build definitions:
+
+- macOS `amd64` and `arm64`: `CGO_ENABLED=1`, built on the macOS release runner,
+  signed with hardened runtime and a secure timestamp, and checked for both the
+  native CGO setting and a certificate-backed signature before packaging;
+- Linux `amd64`/`arm64` and Windows `amd64`: `CGO_ENABLED=0`, preserving portable
+  cross-builds from the macOS runner.
+
+The generated Homebrew formula therefore installs the native Keychain-capable
+artifact on macOS and the portable artifact on Linux.
+
+The release workflow requires these GitHub Actions secrets:
+
+- `MACOS_CERTIFICATE`: base64-encoded PKCS#12 archive containing exactly one
+  valid **Developer ID Application** identity;
+- `MACOS_CERTIFICATE_PWD`: password for that archive;
+- `MACOS_KEYCHAIN_PWD`: password for the temporary CI keychain.
+
+Missing, malformed, ambiguous, expired, or non-Developer-ID signing material
+fails the release. Release builds never fall back to Apple Development or ad-hoc
+signing. The workflow also runs `goreleaser check` before importing signing
+material, and removes the temporary keychain after the release step.
 
 ## Adding a New Service
 

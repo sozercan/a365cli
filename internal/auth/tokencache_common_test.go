@@ -39,3 +39,30 @@ func TestIdentityServiceArtifactPaths(t *testing.T) {
 		t.Fatalf("artifact path[1] = %q, want %q", got, want)
 	}
 }
+
+func TestPersistentTokenCacheDisabled(t *testing.T) {
+	t.Setenv(disablePersistentTokenCacheEnv, "")
+	if persistentTokenCacheDisabled() {
+		t.Fatal("cache should be enabled by default")
+	}
+
+	t.Setenv(disablePersistentTokenCacheEnv, "1")
+	if !persistentTokenCacheDisabled() {
+		t.Fatal("cache should be disabled for isolated tests")
+	}
+}
+
+func TestTokenCacheNamesForCleanup(t *testing.T) {
+	names := tokenCacheNamesForCleanup()
+	want := map[string]bool{"a365": false, "a365-dev": false}
+	for _, name := range names {
+		if _, ok := want[name]; ok {
+			want[name] = true
+		}
+	}
+	for name, found := range want {
+		if !found {
+			t.Fatalf("cleanup cache names missing %q: %v", name, names)
+		}
+	}
+}

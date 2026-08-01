@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -56,16 +58,20 @@ func (c *AuthLoginCmd) Run(ctx *Context) error {
 type AuthStatusCmd struct{}
 
 func (c *AuthStatusCmd) Run(ctx *Context) error {
-	if !auth.HasCachedAuth() {
+	record, err := auth.LoadAuthRecord()
+	if errors.Is(err, os.ErrNotExist) {
 		fmt.Fprintln(ctx.Output.Writer, "Not authenticated. Run 'a365 auth login' to sign in.")
 		return nil
 	}
+	if err != nil {
+		return fmt.Errorf("cached authentication record is invalid — run 'a365 auth logout' then 'a365 auth login': %w", err)
+	}
 
-	username := auth.GetCachedUsername()
+	username := record.Username
 	if username != "" {
-		fmt.Fprintf(ctx.Output.Writer, "Authenticated as %s\n", username)
+		fmt.Fprintf(ctx.Output.Writer, "Cached account: %s (token not verified)\n", username)
 	} else {
-		fmt.Fprintln(ctx.Output.Writer, "Authenticated (cached credentials found)")
+		fmt.Fprintln(ctx.Output.Writer, "Cached account record found (token not verified)")
 	}
 
 	return nil

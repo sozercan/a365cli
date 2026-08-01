@@ -18,7 +18,7 @@ User
   └── auth/             InteractiveBrowserCredential + PKCE + auth record
        |
        agent365.svc.cloud.microsoft
-       /agents/servers/{mcp_server}/
+       /agents/tenants/{tenant_id}/servers/{mcp_server}
 ```
 
 ## Request Lifecycle
@@ -27,7 +27,7 @@ Every command follows the same path:
 
 1. **Parse** — kong parses CLI args into a typed Go struct
 2. **Safety** — `--dry-run` connects to the server, fetches tool schemas via `ListToolsCached()`, validates args against the JSON Schema, and prints the result without executing the tool; destructive ops prompt via `ctx.Confirm()`
-3. **Auth** — `EnsureAuth()` loads cached credentials or triggers browser login
+3. **Auth** — `EnsureAuth()` loads cached credentials; native-cache builds fail with explicit `auth login` guidance when silent authentication is unavailable, while interactive portable builds may fall back to the browser because they have no durable token cache; `--no-input` always disables browser fallback
 4. **Session** — `Initialize()` checks `~/.a365/sessions.json` for a cached session; if valid, skips the MCP handshake
 5. **Request** — `CallTool()` sends a JSON-RPC `tools/call` POST with `Authorization: Bearer` and `Mcp-Session-Id` headers
 6. **Retry** — on 502/503/429/504, retries up to 2x with exponential backoff (1s, 2s); respects `Retry-After` header
@@ -40,7 +40,7 @@ Every command follows the same path:
 
 ### Transport
 
-- **HTTP POST** to `https://agent365.svc.cloud.microsoft/agents/servers/{server}/`
+- **HTTP POST** to `https://agent365.svc.cloud.microsoft/agents/tenants/{tenant_id}/servers/{server}`
 - **Content-Type**: `application/json`
 - **Accept**: `application/json, text/event-stream`
 - **Response**: either `application/json` (plain) or `text/event-stream` (SSE)
@@ -84,13 +84,13 @@ Browser ──PKCE──► Entra ID (login.microsoftonline.com)
                   Access Token (JWT)
                        |
                   ├── Scope: ea9ffc3e-.../.default (all agent365 scopes)
-                  ├── Cached in ~/.a365/auth-record.json for silent refresh
-                  └── Auth record in ~/.a365/auth-record.json for silent refresh
+                  ├── Refresh/token cache in the OS credential store on supported native builds
+                  └── Account-selection metadata in ~/.a365/auth-record.json
 ```
 
 - **Flow**: Interactive browser + PKCE (passes org Conditional Access on managed devices)
-- **Token cache**: `~/.a365/auth-record.json` enables silent token refresh across CLI invocations
-- **Auth record**: `~/.a365/auth-record.json` enables silent token refresh across CLI invocations
+- **Token cache**: supported native builds persist MSAL tokens in the OS credential store; portable builds keep tokens in memory only
+- **Auth record**: `~/.a365/auth-record.json` stores non-token account metadata used to select the cached account
 - **Scope**: `ea9ffc3e-8a23-4a7d-836d-234d7c7565c1/.default` — requests all granted agent365 scopes at once
 
 ## Output Pipeline
@@ -132,7 +132,7 @@ This returns all available servers with their URLs, scopes, and audiences — us
 | **`text/tabwriter` for tables** | Standard library, zero dependencies |
 | **Retry at HTTP layer** | Catches transient 502/503/429 from the gateway without command-level changes |
 | **Session cache as JSON file** | Simple, debuggable, no external dependencies |
-| **Auth record for tokens** | Simple file-based, portable, no OS-specific prompts |
+| **Split auth record and token cache** | Account metadata stays portable while refresh tokens use the platform credential store on supported native builds |
 
 ## File Layout
 
