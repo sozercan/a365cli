@@ -45,10 +45,12 @@ func NewCredentialWithOptions(clientID, tenantID string, credentialOpts Credenti
 	// Enable persistent token cache so refresh tokens survive between CLI
 	// invocations when the platform credential store is available.
 	cacheApplied, err := applyTokenCache(opts)
-	if err != nil {
-		return nil, fmt.Errorf("initialize persistent token cache: %w", err)
+	if policyErr := configureTokenCacheFallback(opts, cacheApplied, err, credentialOpts.AllowAutomaticAuthenticationWithoutCache); policyErr != nil {
+		return nil, fmt.Errorf("initialize persistent token cache: %w", policyErr)
 	}
-	applyAutomaticAuthenticationFallback(opts, cacheApplied, credentialOpts.AllowAutomaticAuthenticationWithoutCache)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: persistent token cache unavailable; using interactive in-memory authentication: %v\n", err)
+	}
 
 	cred, err := azidentity.NewInteractiveBrowserCredential(opts)
 	if err != nil {
@@ -61,10 +63,14 @@ func NewCredentialWithOptions(clientID, tenantID string, credentialOpts Credenti
 	}, nil
 }
 
-func applyAutomaticAuthenticationFallback(opts *azidentity.InteractiveBrowserCredentialOptions, cacheApplied, allowWithoutCache bool) {
-	if !cacheApplied && allowWithoutCache {
+func configureTokenCacheFallback(opts *azidentity.InteractiveBrowserCredentialOptions, cacheApplied bool, cacheErr error, allowWithoutCache bool) error {
+	if cacheErr != nil && !allowWithoutCache {
+		return cacheErr
+	}
+	if (!cacheApplied || cacheErr != nil) && allowWithoutCache {
 		opts.DisableAutomaticAuthentication = false
 	}
+	return nil
 }
 
 func credentialOptions(clientID, tenantID string, record *azidentity.AuthenticationRecord, disableAutomaticAuthentication bool) *azidentity.InteractiveBrowserCredentialOptions {
@@ -113,9 +119,10 @@ func (c *Credential) Authenticate(ctx context.Context) (azcore.AccessToken, erro
 		return azcore.AccessToken{}, fmt.Errorf("authenticate: %w", err)
 	}
 
-	// Cache the auth record for silent re-auth on next run
-	if saveErr := SaveAuthRecord(&record); saveErr != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not cache auth record: %v\n", saveErr)
+	// A successful login must be durable enough for the next command to select
+	// the same account. Report persistence failures instead of claiming success.
+	if err := cacheAuthenticationRecord(&record); err != nil {
+		return azcore.AccessToken{}, err
 	}
 
 	// Now get the actual access token
@@ -127,4 +134,11 @@ func (c *Credential) Authenticate(ctx context.Context) (azcore.AccessToken, erro
 	}
 
 	return token, nil
+}
+
+func cacheAuthenticationRecord(record *azidentity.AuthenticationRecord) error {
+	if err := SaveAuthRecord(record); err != nil {
+		return fmt.Errorf("cache auth record: %w", err)
+	}
+	return nil
 }

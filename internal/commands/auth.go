@@ -33,7 +33,10 @@ func (c *AuthLoginCmd) Run(ctx *Context) error {
 	}
 	fmt.Fprintln(ctx.Output.Writer, "Opening browser for authentication...")
 
-	cred, err := auth.NewCredential(ctx.ClientID, ctx.TenantID)
+	cred, err := auth.NewCredentialWithOptions(ctx.ClientID, ctx.TenantID, auth.CredentialOptions{
+		DisableAutomaticAuthentication:           true,
+		AllowAutomaticAuthenticationWithoutCache: true,
+	})
 	if err != nil {
 		return fmt.Errorf("create credential: %w", err)
 	}
