@@ -7,16 +7,20 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   auto-merge:
-    if: github.actor == 'dependabot[bot]'
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && startsWith(github.head_ref, 'dependabot/')
     runs-on: ubuntu-latest
     steps:
       - name: Wait for CI checks
         run: |
           echo "Waiting for CI checks to complete..."
           for i in $(seq 1 60); do
-            RESULT=$(gh pr checks "$PR_URL" --json name,status,conclusion --jq '[.[] | select(.name != "auto-merge")] | if length == 0 then "pending" elif all(.status == "COMPLETED") then (if all(.conclusion == "SUCCESS") then "pass" else "fail" end) else "pending" end')
+            RESULT=$(gh pr checks "$PR_URL" --json workflow,bucket --jq '[.[] | select(.workflow != "Auto-merge Dependabot PRs") | .bucket] | if length == 0 or any(. == "pending") then "pending" elif all(. == "pass" or . == "skipping") then "pass" else "fail" end')
             echo "Attempt $i: $RESULT"
             if [ "$RESULT" = "pass" ]; then
               echo "All checks passed!"
@@ -33,10 +37,9 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Approve and merge
-        run: |
-          gh pr review "$PR_URL" --approve
-          gh pr merge "$PR_URL" --squash --delete-branch
+      - name: Merge
+        run: gh pr merge "$PR_URL" --squash --delete-branch --match-head-commit "$HEAD_SHA"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
