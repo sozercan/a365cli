@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
 	"github.com/alecthomas/kong"
+	"github.com/sozercan/a365cli/internal/auth"
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/commands/admin"
 	"github.com/sozercan/a365cli/internal/commands/admin365"
@@ -107,6 +109,14 @@ func main() {
 	if cli.TenantID == "" && fileCfg.TenantID != "" {
 		cli.TenantID = fileCfg.TenantID
 	}
+	endpointTenantID := config.ResolveEndpointTenantID(cli.TenantID, auth.GetCachedTenantID())
+	if endpointTenantID != "" {
+		// Keep endpoint routing separate from the authority tenant, which may be
+		// an alias such as "organizations".
+		_ = os.Setenv(config.ResolvedTenantEnv, endpointTenantID)
+	} else {
+		_ = os.Unsetenv(config.ResolvedTenantEnv)
+	}
 	if cli.Output == "" && !cli.JSON && !cli.Plain && fileCfg.Output != "" {
 		switch fileCfg.Output {
 		case "json":
@@ -139,11 +149,10 @@ func main() {
 
 	// For non-auth, non-completion, non-config commands, ensure authentication
 	cmd := kongCtx.Command()
-	if requiresAuth(cmd) {
-		if err := ctx.EnsureAuth(); err != nil {
-			output.PrintError("%v", err)
-			os.Exit(1)
-		}
+	authRequired := requiresAuth(cmd) || (cmd == "api servers" && cli.API.Servers.Probe)
+	if err := prepareAuthenticatedCommand(ctx, authRequired, os.Getenv("A365_ENDPOINT"), endpointTenantID); err != nil {
+		output.PrintError("%v", err)
+		os.Exit(1)
 	}
 
 	// Run the selected command
@@ -152,6 +161,23 @@ func main() {
 		output.PrintError("%v", err)
 		os.Exit(1)
 	}
+}
+
+func prepareAuthenticatedCommand(ctx *commands.Context, authRequired bool, endpointOverride, endpointTenantID string) error {
+	if !authRequired {
+		return nil
+	}
+	if err := ctx.EnsureAuth(); err != nil {
+		return err
+	}
+	return validateServiceTenant(endpointOverride, endpointTenantID)
+}
+
+func validateServiceTenant(endpointOverride, endpointTenantID string) error {
+	if endpointOverride == "" && endpointTenantID == "" {
+		return fmt.Errorf("a concrete Directory tenant ID is required for Agent 365 endpoints; set A365_TENANT_ID to the tenant GUID or remove a domain-valued override and sign in again")
+	}
+	return nil
 }
 
 // resolveOutputFormat merges the new --output flag with the legacy --json/--plain booleans.

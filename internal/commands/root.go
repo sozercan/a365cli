@@ -68,23 +68,16 @@ func (c *Context) EnsureAuth() error {
 		return nil
 	}
 
-	hasCachedAuth := auth.HasCachedAuth()
-	if !hasCachedAuth && (c.NoInput || !isTerminal()) {
-		return fmt.Errorf("authentication required — run 'a365 auth login' first (non-interactive)")
+	if !auth.HasCachedAuth() {
+		return fmt.Errorf("authentication required — run 'a365 auth login' first")
 	}
 
-	cred, err := auth.NewCredential(c.ClientID, c.TenantID)
+	cred, err := auth.NewCredentialWithOptions(c.ClientID, c.TenantID, auth.CredentialOptions{
+		DisableAutomaticAuthentication:           true,
+		AllowAutomaticAuthenticationWithoutCache: c.CanPrompt() && !c.NoInput,
+	})
 	if err != nil {
 		return fmt.Errorf("authentication required — run 'a365 auth login' first: %w", err)
-	}
-
-	// If there's no cached auth record, perform interactive login so the
-	// auth record (including username) is saved for this and future runs.
-	if !hasCachedAuth {
-		fmt.Fprintln(os.Stderr, "Opening browser for authentication...")
-		if _, err := cred.Authenticate(c.Ctx); err != nil {
-			return fmt.Errorf("authentication required — run 'a365 auth login' first: %w", err)
-		}
 	}
 
 	c.TokenProvider = cred.TokenProvider()

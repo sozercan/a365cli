@@ -757,3 +757,59 @@ func TestClient_CopilotUsesLongerResponseHeaderTimeout(t *testing.T) {
 		t.Fatalf("expected copilot request to succeed with longer timeout, got %v", err)
 	}
 }
+
+func TestClientRejectsAuthenticatedRedirect(t *testing.T) {
+	var targetCalled atomic.Bool
+	var redirectCalls atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		targetCalled.Store(true)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer target.Close()
+
+	redirectTarget := target.URL
+	redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		redirectCalls.Add(1)
+		http.Redirect(w, r, redirectTarget, http.StatusTemporaryRedirect)
+	}))
+	defer redirect.Close()
+
+	client := NewClient(redirect.URL, func(context.Context) (string, error) {
+		return "test-token", nil
+	})
+	_, err := client.doRequest(context.Background(), JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "initialize",
+	})
+	if err == nil {
+		t.Fatal("expected authenticated redirect to be rejected")
+	}
+	if !strings.Contains(err.Error(), "refusing MCP redirect after authorization") {
+		t.Fatalf("error = %q", err)
+	}
+	if strings.Contains(err.Error(), redirectTarget) {
+		t.Fatalf("redirect error leaked target URL: %q", err)
+	}
+	if targetCalled.Load() {
+		t.Fatal("redirect target should not receive the authenticated request")
+	}
+	if got := redirectCalls.Load(); got != 1 {
+		t.Fatalf("redirecting endpoint called %d times, want 1", got)
+	}
+}
+
+func TestEndpointForLogRedactsTenant(t *testing.T) {
+	raw := "https://agent365.svc.cloud.microsoft/agents/tenants/22222222-2222-2222-2222-222222222222/servers/mcp_MailTools?debug=value#fragment"
+	got := endpointForLog(raw)
+	if strings.Contains(got, "22222222-2222-2222-2222-222222222222") {
+		t.Fatalf("endpointForLog leaked tenant: %q", got)
+	}
+	if strings.Contains(got, "debug=value") || strings.Contains(got, "fragment") {
+		t.Fatalf("endpointForLog leaked query or fragment: %q", got)
+	}
+	want := "https://agent365.svc.cloud.microsoft/agents/tenants/tenant-redacted/servers/mcp_MailTools"
+	if got != want {
+		t.Fatalf("endpointForLog() = %q, want %q", got, want)
+	}
+}

@@ -22,7 +22,13 @@ jobs:
           go-version: "1.26"
           cache: true
 
-      - name: Configure macOS signing
+      - name: Validate GoReleaser configuration
+        uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # v7.0.0
+        with:
+          version: v2.15.4
+          args: check
+
+      - name: Configure certificate-backed macOS signing
         id: macos_signing
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
@@ -31,59 +37,47 @@ jobs:
         run: |
           set -euo pipefail
 
-          use_adhoc_signing() {
-            local reason="$1"
-            echo "WARN: $reason" >&2
-            echo "WARN: Darwin release binaries will be signed ad-hoc." >&2
-            echo "identity=" >> "$GITHUB_OUTPUT"
-            echo "signing_mode=adhoc" >> "$GITHUB_OUTPUT"
-          }
-
           if [ -z "$MACOS_CERTIFICATE" ] || [ -z "$MACOS_CERTIFICATE_PWD" ] || [ -z "$MACOS_KEYCHAIN_PWD" ]; then
-            use_adhoc_signing "MACOS_CERTIFICATE, MACOS_CERTIFICATE_PWD, or MACOS_KEYCHAIN_PWD is not configured."
-            exit 0
+            echo "::error::MACOS_CERTIFICATE, MACOS_CERTIFICATE_PWD, and MACOS_KEYCHAIN_PWD are all required. Releases never fall back to ad-hoc signing."
+            exit 1
           fi
 
           keychain_path="$RUNNER_TEMP/a365-signing.keychain-db"
           cert_path="$RUNNER_TEMP/a365-signing.p12"
+          echo "keychain_path=$keychain_path" >> "$GITHUB_OUTPUT"
+          trap 'rm -f "$cert_path"' EXIT
 
-          if ! printf '%s' "$MACOS_CERTIFICATE" | base64 --decode > "$cert_path"; then
-            use_adhoc_signing "MACOS_CERTIFICATE is not valid base64."
-            exit 0
+          if ! (printf '%s' "$MACOS_CERTIFICATE" | base64 --decode > "$cert_path" 2>/dev/null || \
+            printf '%s' "$MACOS_CERTIFICATE" | base64 -D > "$cert_path" 2>/dev/null); then
+            echo "::error::MACOS_CERTIFICATE is not valid base64."
+            exit 1
           fi
 
           security create-keychain -p "$MACOS_KEYCHAIN_PWD" "$keychain_path"
           security set-keychain-settings -lut 21600 "$keychain_path"
           security unlock-keychain -p "$MACOS_KEYCHAIN_PWD" "$keychain_path"
-
-          if ! security import "$cert_path" -P "$MACOS_CERTIFICATE_PWD" \
+          security import "$cert_path" -P "$MACOS_CERTIFICATE_PWD" \
             -t cert -f pkcs12 -k "$keychain_path" \
-            -T /usr/bin/codesign -T /usr/bin/security; then
-            rm -f "$cert_path"
-            use_adhoc_signing "MACOS_CERTIFICATE could not be imported."
-            exit 0
-          fi
-
+            -T /usr/bin/codesign -T /usr/bin/security
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$MACOS_KEYCHAIN_PWD" "$keychain_path" >/dev/null
 
-          security list-keychains -d user -s "$keychain_path" \
-            $(security list-keychains -d user | tr -d '"')
+          existing_keychains=$(security list-keychains -d user | tr -d '"')
+          # shellcheck disable=SC2086 # security expects one argument per keychain path.
+          security list-keychains -d user -s "$keychain_path" $existing_keychains
 
-          rm -f "$cert_path"
-
-          identity_hash=$(security find-identity -v -p codesigning "$keychain_path" 2>/dev/null \
-            | awk '/"Developer ID Application:/ && developer == "" { developer = $2 } /"Apple Development:/ && development == "" { development = $2 } END { if (developer != "") print developer; else if (development != "") print development }' || true)
-
-          if [ -z "$identity_hash" ]; then
-            use_adhoc_signing "Imported keychain has no Developer ID Application or Apple Development identity."
-            exit 0
+          identity_hashes=$(security find-identity -v -p codesigning "$keychain_path" 2>/dev/null \
+            | awk '/"Developer ID Application:/ { print $2 }')
+          identity_count=$(printf '%s\n' "$identity_hashes" | sed '/^$/d' | wc -l | tr -d ' ')
+          if [ "$identity_count" -ne 1 ]; then
+            echo "::error::The signing archive must contain exactly one valid Developer ID Application identity; found $identity_count."
+            exit 1
           fi
 
+          identity_hash=$(printf '%s\n' "$identity_hashes" | head -n 1)
           echo "::add-mask::$identity_hash"
           echo "identity=$identity_hash" >> "$GITHUB_OUTPUT"
-          echo "signing_mode=cert" >> "$GITHUB_OUTPUT"
-          echo "Using certificate-backed macOS signing identity."
+          echo "Configured one Developer ID Application identity for certificate-backed signing."
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
@@ -95,3 +89,9 @@ jobs:
           A365_CODESIGN_IDENTITY: ${{ steps.macos_signing.outputs.identity }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_REPO_TOKEN: ${{ secrets.HOMEBREW_REPO_TOKEN }}
+
+      - name: Remove temporary signing keychain
+        if: ${{ always() && steps.macos_signing.outputs.keychain_path != '' }}
+        env:
+          KEYCHAIN_PATH: ${{ steps.macos_signing.outputs.keychain_path }}
+        run: security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
