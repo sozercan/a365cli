@@ -4,8 +4,11 @@ on:
   pull_request:
 
 permissions:
+  actions: read
+  checks: read
   contents: write
   pull-requests: write
+  statuses: read
 
 concurrency:
   group: dependabot-auto-merge-${{ github.event.pull_request.number }}
@@ -20,7 +23,17 @@ jobs:
         run: |
           echo "Waiting for CI checks to complete..."
           for i in $(seq 1 60); do
-            RESULT=$(gh pr checks "$PR_URL" --json workflow,bucket --jq '[.[] | select(.workflow != "Auto-merge Dependabot PRs") | .bucket] | if length == 0 or any(. == "pending") then "pending" elif all(. == "pass" or . == "skipping") then "pass" else "fail" end')
+            CHECKS_EXIT=0
+            CHECKS_OUTPUT=$(gh pr checks "$PR_URL" --json workflow,bucket --jq '[.[] | select(.workflow != "Auto-merge Dependabot PRs") | .bucket] | if length == 0 or any(. == "pending") then "pending" elif all(. == "pass" or . == "skipping") then "pass" else "fail" end' 2>&1) || CHECKS_EXIT=$?
+            if [ "$CHECKS_EXIT" -eq 0 ]; then
+              RESULT="$CHECKS_OUTPUT"
+            elif [ "$CHECKS_EXIT" -eq 8 ] || [[ "$CHECKS_OUTPUT" == no\ checks\ reported\ on* ]]; then
+              RESULT="pending"
+            else
+              echo "$CHECKS_OUTPUT"
+              echo "Failed to query PR checks (exit $CHECKS_EXIT)" >&2
+              exit "$CHECKS_EXIT"
+            fi
             echo "Attempt $i: $RESULT"
             if [ "$RESULT" = "pass" ]; then
               echo "All checks passed!"
