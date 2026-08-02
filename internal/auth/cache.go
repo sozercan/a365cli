@@ -99,3 +99,12 @@ func GetCachedUsername() string {
 	}
 	return record.Username
 }
+
+// GetCachedTenantID returns the tenant ID from the cached auth record, if any.
+func GetCachedTenantID() string {
+	record, err := LoadAuthRecord()
+	if err != nil {
+		return ""
+	}
+	return record.TenantID
+}

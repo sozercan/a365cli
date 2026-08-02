@@ -5,10 +5,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -20,6 +22,8 @@ import (
 
 // TokenProvider returns a bearer token for authorization.
 type TokenProvider func(ctx context.Context) (string, error)
+
+var errAuthenticatedRedirect = errors.New("refusing MCP redirect after authorization")
 
 // VerboseLogger is called with request/response details when verbose mode is on.
 type VerboseLogger func(format string, args ...any)
@@ -51,10 +55,37 @@ func NewClient(endpoint string, tokenProvider TokenProvider) *Client {
 				TLSHandshakeTimeout:   10 * time.Second,
 				ResponseHeaderTimeout: responseHeaderTimeout,
 			},
+			CheckRedirect: func(_ *http.Request, via []*http.Request) error {
+				if len(via) > 0 {
+					return errAuthenticatedRedirect
+				}
+				return nil
+			},
 		},
 		maxRetries:     2,
 		retryBaseDelay: time.Second,
 	}
+}
+
+func endpointForLog(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "<invalid endpoint>"
+	}
+
+	parts := strings.Split(u.Path, "/")
+	for i := 0; i+1 < len(parts); i++ {
+		if parts[i] == "tenants" {
+			parts[i+1] = "tenant-redacted"
+			break
+		}
+	}
+	u.Path = strings.Join(parts, "/")
+	u.RawPath = ""
+	u.RawQuery = ""
+	u.Fragment = ""
+	u.User = nil
+	return u.String()
 }
 
 func serviceNameFromEndpoint(endpoint string) string {
@@ -99,7 +130,7 @@ func (c *Client) Initialize(ctx context.Context) error {
 	// Try to reuse a cached session (best-effort).
 	if sid, ok := LoadSession(c.endpoint); ok {
 		c.sessionID = sid
-		c.logf("--- MCP reusing cached session for %s", c.endpoint)
+		c.logf("--- MCP reusing cached session for %s", endpointForLog(c.endpoint))
 		return nil
 	}
 
@@ -149,7 +180,7 @@ func (c *Client) doInitialize(ctx context.Context) error {
 func (c *Client) CallTool(ctx context.Context, name string, args map[string]any) (*JSONRPCResponse, error) {
 	resp, err := c.callToolOnce(ctx, name, args)
 	if isSessionError(resp, err) {
-		c.logf("--- MCP session invalid, re-initializing for %s", c.endpoint)
+		c.logf("--- MCP session invalid, re-initializing for %s", endpointForLog(c.endpoint))
 		c.sessionID = ""
 		ClearSession(c.endpoint)
 		if initErr := c.doInitialize(ctx); initErr != nil {
@@ -192,7 +223,7 @@ func (c *Client) ListTools(ctx context.Context) (*JSONRPCResponse, error) {
 // On a cache miss, it calls ListTools and caches the result for future use.
 func (c *Client) ListToolsCached(ctx context.Context) ([]ToolInfo, error) {
 	if tools := LoadTools(c.endpoint); len(tools) > 0 {
-		c.logf("--- MCP reusing cached tools for %s", c.endpoint)
+		c.logf("--- MCP reusing cached tools for %s", endpointForLog(c.endpoint))
 		return tools, nil
 	}
 
@@ -242,10 +273,10 @@ func (c *Client) doRequest(ctx context.Context, rpcReq JSONRPCRequest) (*JSONRPC
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	c.logf(">>> MCP %s %s (response-header-timeout=%s)\n%s", rpcReq.Method, c.endpoint, c.responseHeaderTimeout, string(body))
+	c.logf(">>> MCP %s %s (response-header-timeout=%s)\n%s", rpcReq.Method, endpointForLog(c.endpoint), c.responseHeaderTimeout, string(body))
 
 	if err := config.ValidateEndpointURL(c.endpoint); err != nil {
-		return nil, fmt.Errorf("invalid endpoint %q: %w", c.endpoint, err)
+		return nil, fmt.Errorf("invalid endpoint %q: %w", endpointForLog(c.endpoint), err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(body))
@@ -354,6 +385,9 @@ func (c *Client) doHTTPWithRetry(ctx context.Context, httpReq *http.Request, bod
 
 		// On network error, decide whether to retry.
 		if err != nil {
+			if errors.Is(err, errAuthenticatedRedirect) {
+				return nil, errAuthenticatedRedirect
+			}
 			if attempt < c.maxRetries {
 				delay := c.retryBaseDelay * (1 << attempt)
 				c.logf("retrying request (attempt %d/%d) after %v...", attempt+1, c.maxRetries, delay)
@@ -363,6 +397,10 @@ func (c *Client) doHTTPWithRetry(ctx context.Context, httpReq *http.Request, bod
 				case <-time.After(delay):
 				}
 				continue
+			}
+			var urlErr *url.Error
+			if errors.As(err, &urlErr) {
+				err = urlErr.Err
 			}
 			return nil, fmt.Errorf("HTTP request: %w", err)
 		}

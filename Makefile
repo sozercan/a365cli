@@ -1,27 +1,74 @@
 GO ?= go
-BINARY := a365
+BINARY ?= a365
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-LDFLAGS := -ldflags "-X github.com/sozercan/a365cli/internal/version.Version=$(VERSION) -X github.com/sozercan/a365cli/internal/version.Commit=$(COMMIT)"
+A365_TOKEN_CACHE_NAME ?= a365-dev
+LDFLAGS := -ldflags "-X github.com/sozercan/a365cli/internal/version.Version=$(VERSION) -X github.com/sozercan/a365cli/internal/version.Commit=$(COMMIT) -X github.com/sozercan/a365cli/internal/auth.persistentTokenCacheName=$(A365_TOKEN_CACHE_NAME)"
 TARGET_GOOS := $(or $(GOOS),$(shell $(GO) env GOOS))
 TARGET_GOARCH := $(or $(GOARCH),$(shell $(GO) env GOARCH))
 TARGET_GOEXE := $(shell GOOS=$(TARGET_GOOS) GOARCH=$(TARGET_GOARCH) $(GO) env GOEXE)
 HOST_GOOS := $(shell $(GO) env GOHOSTOS)
 HOST_GOARCH := $(shell $(GO) env GOHOSTARCH)
 GOENV := GOOS=$(TARGET_GOOS) GOARCH=$(TARGET_GOARCH)
-A365_DETECTED_CODESIGN_IDENTITY := $(shell if [ "$$(uname)" = "Darwin" ] && command -v security >/dev/null 2>&1; then security find-identity -v -p codesigning 2>/dev/null | awk '/"Apple Development:/ { print $$2; exit }'; fi)
+# Canonical local Darwin builds automatically select the first valid Apple
+# Development identity, falling back to Developer ID Application. An explicit
+# environment or command-line value always wins.
+A365_DETECTED_CODESIGN_IDENTITY = $(shell if [ "$(HOST_GOOS)" = "darwin" ] && [ "$(TARGET_GOOS)" = "darwin" ] && command -v security >/dev/null 2>&1; then security find-identity -v -p codesigning 2>/dev/null | awk '/"Apple Development:/ && apple == "" { apple = $$2 } /"Developer ID Application:/ && developer == "" { developer = $$2 } END { if (apple != "") print apple; else if (developer != "") print developer }'; fi)
 A365_CODESIGN_IDENTITY ?= $(A365_DETECTED_CODESIGN_IDENTITY)
+A365_CODESIGN_IDENTIFIER ?= com.github.sozercan.a365
+A365_REQUIRE_CERT_SIGNING ?= 1
+A365_ALLOW_ADHOC_SIGNING ?= 0
+GORELEASER ?= goreleaser
 
+# Canonical macOS builds require an explicitly selected certificate-backed
+# identity. Ad-hoc signing is available only through an explicitly named target.
 define codesign_binary
-	@if [ "$(TARGET_GOOS)" = "darwin" ] && [ "$$(uname)" = "Darwin" ] && command -v codesign >/dev/null 2>&1; then \
-		identity="$(A365_CODESIGN_IDENTITY)"; \
-		if [ -n "$$identity" ]; then \
-			echo "Signing $(1) with configured codesigning identity"; \
-			codesign --force --sign "$$identity" "$(1)"; \
-		else \
-			echo "Signing $(1) ad-hoc (set A365_CODESIGN_IDENTITY to use a stable cert)"; \
-			codesign --force --sign - "$(1)" 2>/dev/null || true; \
+	@set -e; \
+	if [ "$(TARGET_GOOS)" != "darwin" ]; then \
+		exit 0; \
+	fi; \
+	if [ "$(HOST_GOOS)" != "darwin" ]; then \
+		if [ "$(A365_REQUIRE_CERT_SIGNING)" = "1" ]; then \
+			echo "ERROR: canonical Darwin builds must be produced and certificate-signed on macOS." >&2; \
+			rm -f "$(1)"; \
+			exit 1; \
 		fi; \
+		echo "WARNING: leaving cross-built Darwin artifact unsigned; it is not a canonical a365 binary." >&2; \
+		exit 0; \
+	fi; \
+	if ! command -v codesign >/dev/null 2>&1; then \
+		echo "ERROR: codesign is required for Darwin builds." >&2; \
+		rm -f "$(1)"; \
+		exit 1; \
+	fi; \
+	identity="$(A365_CODESIGN_IDENTITY)"; \
+	if [ -n "$$identity" ] && [ "$$identity" != "-" ]; then \
+		if command -v security >/dev/null 2>&1 && \
+			! security find-identity -v -p codesigning 2>/dev/null | grep -Fqi -- "$$identity"; then \
+			echo "ERROR: A365_CODESIGN_IDENTITY does not match a valid local codesigning identity." >&2; \
+			rm -f "$(1)"; \
+			exit 1; \
+		fi; \
+		echo "Signing $(1) with the selected certificate-backed identity"; \
+		codesign --force --options runtime --identifier "$(A365_CODESIGN_IDENTIFIER)" --sign "$$identity" "$(1)"; \
+		codesign --verify --strict --verbose=2 "$(1)"; \
+		details="$$(codesign -dv --verbose=4 "$(1)" 2>&1)"; \
+		if ! printf '%s\n' "$$details" | grep -q '^Authority=' || \
+			! printf '%s\n' "$$details" | grep -q '^Identifier=$(A365_CODESIGN_IDENTIFIER)$$'; then \
+			echo "ERROR: certificate-backed signature verification failed." >&2; \
+			rm -f "$(1)"; \
+			exit 1; \
+		fi; \
+	elif [ "$(A365_ALLOW_ADHOC_SIGNING)" = "1" ]; then \
+		echo "WARNING: signing $(1) ad-hoc; use only as a disposable development binary." >&2; \
+		codesign --force --identifier "$(A365_CODESIGN_IDENTIFIER)" --sign - "$(1)"; \
+		codesign --verify --strict --verbose=2 "$(1)"; \
+	else \
+		echo "ERROR: no valid certificate-backed codesigning identity was found." >&2; \
+		echo "       Install an Apple Development certificate or set A365_CODESIGN_IDENTITY explicitly." >&2; \
+		echo "       For a disposable build, run 'make build-adhoc' instead." >&2; \
+		rm -f "$(1)"; \
+		exit 1; \
 	fi
 endef
 
@@ -45,57 +92,112 @@ define install_binary
 		fi; \
 	fi; \
 	install_binary="$$bin_dir/$(BINARY)$(TARGET_GOEXE)"; \
+	staged_binary="$$install_binary.tmp.$$$$"; \
 	mkdir -p "$$bin_dir"; \
-	$(1) $(GOENV) $(GO) build $(LDFLAGS) -o "$$install_binary" .; \
-	if [ "$(TARGET_GOOS)" = "darwin" ] && [ "$$(uname)" = "Darwin" ] && command -v codesign >/dev/null 2>&1; then \
-		identity="$(A365_CODESIGN_IDENTITY)"; \
-		if [ -n "$$identity" ]; then \
-			echo "Signing $$install_binary with configured codesigning identity"; \
-			codesign --force --sign "$$identity" "$$install_binary"; \
+	trap 'rm -f "$$staged_binary"' 0 1 2 15; \
+	$(1) $(GOENV) $(GO) build $(LDFLAGS) -o "$$staged_binary" .; \
+	if [ "$(TARGET_GOOS)" = "darwin" ]; then \
+		if [ "$(HOST_GOOS)" != "darwin" ]; then \
+			if [ "$(A365_REQUIRE_CERT_SIGNING)" = "1" ]; then \
+				echo "ERROR: canonical Darwin installs must be produced and certificate-signed on macOS." >&2; \
+				exit 1; \
+			fi; \
+			echo "WARNING: installing an unsigned, non-canonical cross-built Darwin artifact." >&2; \
 		else \
-			echo "Signing $$install_binary ad-hoc (set A365_CODESIGN_IDENTITY to use a stable cert)"; \
-			codesign --force --sign - "$$install_binary" 2>/dev/null || true; \
+			identity="$(A365_CODESIGN_IDENTITY)"; \
+			if [ -n "$$identity" ] && [ "$$identity" != "-" ]; then \
+				if command -v security >/dev/null 2>&1 && \
+					! security find-identity -v -p codesigning 2>/dev/null | grep -Fqi -- "$$identity"; then \
+					echo "ERROR: A365_CODESIGN_IDENTITY does not match a valid local codesigning identity." >&2; \
+					exit 1; \
+				fi; \
+				echo "Signing staged a365 binary with the selected certificate-backed identity"; \
+				codesign --force --options runtime --identifier "$(A365_CODESIGN_IDENTIFIER)" --sign "$$identity" "$$staged_binary"; \
+				codesign --verify --strict --verbose=2 "$$staged_binary"; \
+				details="$$(codesign -dv --verbose=4 "$$staged_binary" 2>&1)"; \
+				if ! printf '%s\n' "$$details" | grep -q '^Authority=' || \
+					! printf '%s\n' "$$details" | grep -q '^Identifier=$(A365_CODESIGN_IDENTIFIER)$$'; then \
+					echo "ERROR: certificate-backed signature verification failed." >&2; \
+					exit 1; \
+				fi; \
+			elif [ "$(A365_ALLOW_ADHOC_SIGNING)" = "1" ]; then \
+				echo "WARNING: signing staged a365 binary ad-hoc; use only as a disposable development binary." >&2; \
+				codesign --force --identifier "$(A365_CODESIGN_IDENTIFIER)" --sign - "$$staged_binary"; \
+				codesign --verify --strict --verbose=2 "$$staged_binary"; \
+			else \
+				echo "ERROR: no valid certificate-backed codesigning identity was found." >&2; \
+				echo "       Install an Apple Development certificate or set A365_CODESIGN_IDENTITY explicitly." >&2; \
+				exit 1; \
+			fi; \
 		fi; \
-	fi
+	fi; \
+	mv -f "$$staged_binary" "$$install_binary"; \
+	trap - 0 1 2 15
 endef
 
-.PHONY: build build-cgo build-static install install-cgo install-static test clean lint fmt vet
+.PHONY: build build-cgo build-adhoc build-static install install-cgo install-adhoc install-static release-check test test-short clean lint fmt vet help
 
-## build: Build the a365 binary with OS-backed token cache support when available
+## build: Build the canonical native binary (macOS requires explicit certificate signing)
 build: build-cgo
 
-## build-cgo: Build the a365 binary with default native auth behavior
+## build-cgo: Build with CGO-backed OS token caching on supported native platforms
 build-cgo:
-	$(GOENV) $(GO) build $(LDFLAGS) -o $(BINARY) .
-	$(call codesign_binary,$(BINARY))
+	CGO_ENABLED=1 $(GOENV) $(GO) build $(LDFLAGS) -o $(BINARY).tmp .
+	$(call codesign_binary,$(BINARY).tmp)
+	mv -f $(BINARY).tmp $(BINARY)
 
-## build-static: Build a pure-Go binary without OS-backed token cache support
+## build-adhoc: Build a disposable CGO-enabled macOS binary with explicit ad-hoc signing
+build-adhoc: A365_REQUIRE_CERT_SIGNING=0
+build-adhoc: A365_ALLOW_ADHOC_SIGNING=1
+build-adhoc: A365_CODESIGN_IDENTITY=
+build-adhoc: build-cgo
+
+## build-static: Build a portable pure-Go binary without persistent OS token caching
+build-static: A365_REQUIRE_CERT_SIGNING=0
+build-static: A365_ALLOW_ADHOC_SIGNING=1
+build-static: A365_CODESIGN_IDENTITY=
 build-static:
-	CGO_ENABLED=0 $(GOENV) $(GO) build $(LDFLAGS) -o $(BINARY) .
-	$(call codesign_binary,$(BINARY))
+	CGO_ENABLED=0 $(GOENV) $(GO) build $(LDFLAGS) -o $(BINARY).tmp .
+	$(call codesign_binary,$(BINARY).tmp)
+	mv -f $(BINARY).tmp $(BINARY)
 
-## install: Install a365 with OS-backed token cache support when available
+## install: Install the canonical native binary (macOS requires explicit certificate signing)
 install: install-cgo
 
-## install-cgo: Install a365 with default native auth behavior
+## install-cgo: Install with CGO-backed OS token caching on supported native platforms
 install-cgo:
-	$(call install_binary,)
+	$(call install_binary,CGO_ENABLED=1)
 
-## install-static: Install a pure-Go a365 binary without OS-backed token cache support
+## install-adhoc: Install a disposable CGO-enabled macOS binary with explicit ad-hoc signing
+install-adhoc: A365_REQUIRE_CERT_SIGNING=0
+install-adhoc: A365_ALLOW_ADHOC_SIGNING=1
+install-adhoc: A365_CODESIGN_IDENTITY=
+install-adhoc:
+	$(call install_binary,CGO_ENABLED=1)
+
+## install-static: Install a portable pure-Go binary without persistent OS token caching
+install-static: A365_REQUIRE_CERT_SIGNING=0
+install-static: A365_ALLOW_ADHOC_SIGNING=1
+install-static: A365_CODESIGN_IDENTITY=
 install-static:
 	$(call install_binary,CGO_ENABLED=0)
 
+## release-check: Validate .goreleaser.yml with the installed GoReleaser
+release-check:
+	@command -v $(GORELEASER) >/dev/null 2>&1 || { echo "ERROR: goreleaser is required for release-check." >&2; exit 1; }
+	$(GORELEASER) check
+
 ## test: Run all tests
 test:
-	$(GO) test ./... -v
+	A365_DISABLE_PERSISTENT_TOKEN_CACHE=1 $(GO) test ./... -v
 
 ## test-short: Run tests without verbose output
 test-short:
-	$(GO) test ./...
+	A365_DISABLE_PERSISTENT_TOKEN_CACHE=1 $(GO) test ./...
 
 ## clean: Remove build artifacts
 clean:
-	rm -f $(BINARY)
+	rm -f $(BINARY) $(BINARY).tmp
 
 ## fmt: Format Go source files
 fmt:
