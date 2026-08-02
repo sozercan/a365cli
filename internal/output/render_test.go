@@ -33,6 +33,43 @@ func TestRenderTable(t *testing.T) {
 	}
 }
 
+func TestRenderTable_UsesConfiguredColumnWidthForAlignment(t *testing.T) {
+	columns := []Column{
+		{Header: "NAME", Width: 10, Extract: func(r map[string]any) string { return getString(r, "name") }},
+		{Header: "ID", Width: 0, Extract: func(r map[string]any) string { return getString(r, "id") }},
+	}
+	rows := []map[string]any{
+		{"name": "Alice", "id": "1"},
+		{"name": "Bob", "id": "2"},
+	}
+
+	var buf bytes.Buffer
+	RenderTable(&buf, columns, rows)
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d", len(lines))
+	}
+
+	headerID := strings.Index(lines[0], "ID")
+	row1ID := strings.Index(lines[1], "1")
+	row2ID := strings.Index(lines[2], "2")
+
+	if headerID != 12 {
+		t.Fatalf("expected ID header to start at column 12, got %d in %q", headerID, lines[0])
+	}
+	if row1ID != headerID || row2ID != headerID {
+		t.Fatalf(
+			"expected ID column to align at index %d, got row1=%d row2=%d\nheader=%q\nrow1=%q\nrow2=%q",
+			headerID,
+			row1ID,
+			row2ID,
+			lines[0],
+			lines[1],
+			lines[2],
+		)
+	}
+}
+
 func TestRenderTSV(t *testing.T) {
 	columns := []Column{
 		{Header: "NAME", Extract: func(r map[string]any) string { return getString(r, "name") }},

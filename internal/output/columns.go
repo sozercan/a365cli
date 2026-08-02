@@ -10,8 +10,8 @@ import (
 
 // Column defines a column for table/TSV output.
 type Column struct {
-	Header  string                         // Display header, e.g. "DISPLAY NAME"
-	Width   int                            // Max chars for table display (0 = unlimited)
+	Header  string                          // Display header, e.g. "DISPLAY NAME"
+	Width   int                             // Max chars for table display (0 = unlimited)
 	Extract func(row map[string]any) string // Pull value from row
 }
 
@@ -76,13 +76,13 @@ func truncate(s string, max int) string {
 // stripHTML removes HTML tags and unescapes HTML entities,
 // with special handling for Teams-specific markup.
 var (
-	htmlTagRe      = regexp.MustCompile(`<[^>]*>`)
-	emojiRe        = regexp.MustCompile(`<emoji[^>]*\balt="([^"]*)"[^>]*>.*?</emoji>`)
-	attachmentRe   = regexp.MustCompile(`<attachment[^>]*>.*?</attachment>`)
-	systemEventRe  = regexp.MustCompile(`<systemEventMessage[^>]*/>`)
-	imgAltRe       = regexp.MustCompile(`<img[^>]*\balt="([^"]*)"[^>]*>`)
-	codeBlockRe    = regexp.MustCompile(`<codeblock[^>]*><code>|</code></codeblock>`)
-	anchorRe       = regexp.MustCompile(`<a[^>]*>(.*?)</a>`)
+	htmlTagRe     = regexp.MustCompile(`<[^>]*>`)
+	emojiRe       = regexp.MustCompile(`<emoji[^>]*\balt="([^"]*)"[^>]*>.*?</emoji>`)
+	attachmentRe  = regexp.MustCompile(`<attachment[^>]*>.*?</attachment>`)
+	systemEventRe = regexp.MustCompile(`<systemEventMessage[^>]*/>`)
+	imgAltRe      = regexp.MustCompile(`<img[^>]*\balt="([^"]*)"[^>]*>`)
+	codeBlockRe   = regexp.MustCompile(`<codeblock[^>]*><code>|</code></codeblock>`)
+	anchorRe      = regexp.MustCompile(`<a[^>]*>(.*?)</a>`)
 )
 
 func stripHTML(s string) string {
@@ -444,6 +444,36 @@ var UserColumns = []Column{
 	}},
 	{Header: "ID", Width: 36, Extract: func(row map[string]any) string {
 		return getString(row, "id")
+	}},
+}
+
+// CopilotAgentColumns defines display columns for Copilot agent lists.
+var CopilotAgentColumns = []Column{
+	{Header: "NAME", Width: 32, Extract: func(row map[string]any) string {
+		return truncate(getString(row, "name"), 32)
+	}},
+	{Header: "SELECTOR", Width: 20, Extract: func(row map[string]any) string {
+		selector := getString(row, "selector")
+		if selector != "" {
+			return selector
+		}
+		return getString(row, "agentId")
+	}},
+	{Header: "STATUS", Width: 10, Extract: func(row map[string]any) string {
+		status := getString(row, "status")
+		if status != "" {
+			return status
+		}
+		if shared, ok := row["sharedSelector"].(bool); ok && shared {
+			return "shared"
+		}
+		if targetable, ok := row["targetable"].(bool); ok && targetable {
+			return "ok"
+		}
+		return ""
+	}},
+	{Header: "TITLE ID", Width: 0, Extract: func(row map[string]any) string {
+		return getString(row, "titleId")
 	}},
 }
 

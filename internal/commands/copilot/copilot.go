@@ -7,59 +7,73 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
 	"github.com/sozercan/a365cli/internal/output"
 )
 
-const copilotChatTool = "copilot_chat"
+const (
+	copilotChatTool               = "copilot_chat"
+	copilotServiceErrorMaxRetries = 1
+	copilotServiceErrorRetryDelay = time.Second
+)
 
 // CopilotCmd groups all Copilot subcommands.
 type CopilotCmd struct {
-	Chat CopilotChatCmd `cmd:"" help:"Ask Copilot about your M365 content"`
+	Chat   CopilotChatCmd   `cmd:"" help:"Ask Copilot about your M365 content"`
+	Agents CopilotAgentsCmd `cmd:"" help:"List available Copilot agents and selectors"`
 }
 
 func copilotEndpoint() string {
 	return config.Endpoint("copilot")
 }
 
+type copilotServiceError struct {
+	message   string
+	retryable bool
+}
+
+func (e *copilotServiceError) Error() string {
+	return e.message
+}
+
 // CopilotChatCmd searches internal M365 content using natural language.
 type CopilotChatCmd struct {
 	Message        string `arg:"" help:"Natural language question about your M365 content" optional:""`
 	ConversationID string `help:"Conversation ID for follow-up queries" name:"conversation-id" optional:""`
+	Agent          string `help:"Copilot agent name or ID (resolved before chat)" name:"agent" optional:""`
+	NoWebSearch    bool   `help:"Disable web search for Copilot grounding" name:"no-web-search"`
 }
 
 func (c *CopilotChatCmd) Run(ctx *commands.Context) error {
-	return runChat(ctx, c.Message, c.ConversationID)
+	agentSelector, err := resolveAgentForChat(ctx, c.Agent)
+	if err != nil {
+		return err
+	}
+	return runChat(ctx, c.Message, c.ConversationID, agentSelector, !c.NoWebSearch)
 }
 
-func runChat(ctx *commands.Context, message, conversationID string) error {
+func runChat(ctx *commands.Context, message, conversationID, agentSelector string, enableWebSearch bool) error {
 	question := strings.TrimSpace(message)
 	if question == "" {
 		if !ctx.CanPrompt() {
 			return fmt.Errorf("question required in non-interactive mode")
 		}
-		return runInteractiveLoop(ctx, os.Stdin, os.Stderr, conversationID)
+		return runInteractiveLoop(ctx, os.Stdin, os.Stderr, conversationID, agentSelector, enableWebSearch)
 	}
 
-	data, nextConversationID, err := callCopilot(ctx, question, conversationID)
+	data, _, err := callCopilot(ctx, question, conversationID, agentSelector, enableWebSearch)
 	if err != nil {
 		return err
 	}
 
-	if err := printCopilotResponse(ctx, data); err != nil {
-		return err
-	}
-
-	if nextConversationID != "" && ctx.Output.Format == output.FormatHuman {
-		fmt.Fprintf(os.Stderr, "Conversation ID: %s\n", nextConversationID)
-	}
-
-	return nil
+	return printCopilotResponse(ctx, data)
 }
 
-func runInteractiveLoop(ctx *commands.Context, input io.Reader, promptWriter io.Writer, conversationID string) error {
+func runInteractiveLoop(ctx *commands.Context, input io.Reader, promptWriter io.Writer, conversationID, agentSelector string, enableWebSearch bool) error {
 	reader := bufio.NewReader(input)
 	currentConversationID := conversationID
 
@@ -86,7 +100,7 @@ func runInteractiveLoop(ctx *commands.Context, input io.Reader, promptWriter io.
 			return nil
 		}
 
-		data, nextConversationID, askErr := callCopilot(ctx, question, currentConversationID)
+		data, nextConversationID, askErr := callCopilot(ctx, question, currentConversationID, agentSelector, enableWebSearch)
 		if askErr != nil {
 			fmt.Fprintf(promptWriter, "Error: %v\n", askErr)
 			if eof {
@@ -109,35 +123,52 @@ func runInteractiveLoop(ctx *commands.Context, input io.Reader, promptWriter io.
 	}
 }
 
-func callCopilot(ctx *commands.Context, message, conversationID string) (map[string]any, string, error) {
-	client := ctx.NewMCPClient(copilotEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return nil, "", fmt.Errorf("initialize: %w", err)
-	}
+func callCopilot(ctx *commands.Context, message, conversationID, agentSelector string, enableWebSearch bool) (map[string]any, string, error) {
+	stopSpinner := startCopilotSpinner(ctx)
+	defer stopSpinner()
 
 	args := map[string]any{
-		"message": message,
+		"enableWebSearch": enableWebSearch,
+		"message":         message,
 	}
 	if conversationID != "" {
 		args["conversationId"] = conversationID
 	}
-
-	resp, err := client.CallTool(ctx.Ctx, copilotChatTool, args)
-	if err != nil {
-		return nil, "", fmt.Errorf("copilot chat: %w", err)
+	if agentSelector != "" {
+		args["agentId"] = agentSelector
 	}
 
-	data, err := output.ExtractContent(resp)
-	if err != nil {
-		return nil, "", err
-	}
+	for attempt := 0; ; attempt++ {
+		data, err := ctx.CallToolData(copilotEndpoint(), copilotChatTool, "copilot chat", args)
+		if err != nil {
+			return nil, "", err
+		}
 
-	nextConversationID := findConversationID(data)
-	if ctx.Output.Format != output.FormatJSON {
-		data = normalizeCopilotResponse(data, nextConversationID)
-	}
+		if svcErr := copilotServiceErrorFromData(data); svcErr != nil {
+			if svcErr.retryable && attempt < copilotServiceErrorMaxRetries {
+				if ctx.Verbose {
+					fmt.Fprintf(os.Stderr, "--- Copilot returned a retryable service error; retrying (attempt %d/%d) after %v\n%s\n", attempt+1, copilotServiceErrorMaxRetries, copilotServiceErrorRetryDelay, svcErr.Error())
+				}
 
-	return data, nextConversationID, nil
+				select {
+				case <-ctx.Ctx.Done():
+					return nil, "", ctx.Ctx.Err()
+				case <-time.After(copilotServiceErrorRetryDelay):
+				}
+
+				continue
+			}
+
+			return nil, "", fmt.Errorf("copilot chat: %w", svcErr)
+		}
+
+		nextConversationID := findConversationID(data)
+		if ctx.Output.Format != output.FormatJSON {
+			data = normalizeCopilotResponse(data, nextConversationID)
+		}
+
+		return data, nextConversationID, nil
+	}
 }
 
 func printCopilotResponse(ctx *commands.Context, data map[string]any) error {
@@ -151,17 +182,19 @@ func printCopilotResponse(ctx *commands.Context, data map[string]any) error {
 		return ctx.Output.PrintItem(data)
 	}
 
-	fmt.Fprintln(ctx.Output.Writer, "Copilot:", message)
+	if ctx.NoInput {
+		fmt.Fprintln(ctx.Output.Writer, message)
+	} else {
+		fmt.Fprintln(ctx.Output.Writer, "Copilot:", message)
+	}
 
 	meta := cloneMap(data)
 	if messageKey != "" {
 		delete(meta, messageKey)
 	}
-	if ctx.Output.Format == output.FormatHuman {
-		delete(meta, "conversationId")
-		delete(meta, "conversationID")
-		delete(meta, "conversation_id")
-	}
+	delete(meta, "conversationId")
+	delete(meta, "conversationID")
+	delete(meta, "conversation_id")
 	delete(meta, "@odata.context")
 	delete(meta, "createdDateTime")
 	delete(meta, "displayName")
@@ -233,6 +266,55 @@ func cloneMap(data map[string]any) map[string]any {
 	return cloned
 }
 
+func copilotServiceErrorFromData(data map[string]any) *copilotServiceError {
+	_, message := extractPrimaryText(data)
+	message = sanitizeCopilotServiceMessage(message)
+	if message == "" {
+		return nil
+	}
+
+	lower := strings.ToLower(message)
+	if !strings.HasPrefix(lower, "error executing tool:") {
+		return nil
+	}
+
+	return &copilotServiceError{
+		message:   message,
+		retryable: isRetryableCopilotServiceError(message),
+	}
+}
+
+func isRetryableCopilotServiceError(message string) bool {
+	lower := strings.ToLower(message)
+	return strings.Contains(lower, "timed out") || strings.Contains(lower, "timed-out") || strings.Contains(lower, "timeout")
+}
+
+func sanitizeCopilotServiceMessage(message string) string {
+	message = strings.ReplaceAll(message, "\r\n", "\n")
+	message = strings.ReplaceAll(message, "\r", "\n")
+
+	seen := map[string]struct{}{}
+	lines := strings.Split(message, "\n")
+	cleaned := make([]string, 0, len(lines))
+
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		if i == 0 {
+			line = strings.TrimSpace(strings.TrimPrefix(line, "Error:"))
+		}
+		if line == "" {
+			continue
+		}
+		if _, ok := seen[line]; ok {
+			continue
+		}
+		seen[line] = struct{}{}
+		cleaned = append(cleaned, line)
+	}
+
+	return strings.TrimSpace(strings.Join(cleaned, "\n"))
+}
+
 func normalizeCopilotResponse(data map[string]any, conversationID string) map[string]any {
 	message := extractConversationMessage(data)
 	if message == "" {
@@ -275,4 +357,70 @@ func isExitCommand(question string) bool {
 	default:
 		return false
 	}
+}
+
+func startCopilotSpinner(ctx *commands.Context) func() {
+	if ctx.Verbose || !stderrIsTerminal() {
+		return func() {}
+	}
+
+	const (
+		label      = "Thinking..."
+		startDelay = 200 * time.Millisecond
+		frameDelay = 120 * time.Millisecond
+	)
+
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	var once sync.Once
+
+	go func() {
+		defer close(done)
+
+		timer := time.NewTimer(startDelay)
+		defer timer.Stop()
+
+		select {
+		case <-stop:
+			return
+		case <-timer.C:
+		}
+
+		frames := []string{"|", "/", "-", "\\"}
+		ticker := time.NewTicker(frameDelay)
+		defer ticker.Stop()
+
+		render := func(frame string) {
+			fmt.Fprintf(os.Stderr, "\r%s %s", frame, label)
+		}
+
+		frameIndex := 0
+		render(frames[frameIndex])
+
+		for {
+			select {
+			case <-stop:
+				fmt.Fprintf(os.Stderr, "\r%s\r", strings.Repeat(" ", len(label)+2))
+				return
+			case <-ticker.C:
+				frameIndex = (frameIndex + 1) % len(frames)
+				render(frames[frameIndex])
+			}
+		}
+	}()
+
+	return func() {
+		once.Do(func() {
+			close(stop)
+			<-done
+		})
+	}
+}
+
+func stderrIsTerminal() bool {
+	fi, err := os.Stderr.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
 }

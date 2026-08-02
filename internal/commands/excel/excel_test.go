@@ -15,17 +15,18 @@ func TestExcelCreateCmd_DryRun(t *testing.T) {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"action":          map[string]any{"type": "string"},
-					"desiredFileName": map[string]any{"type": "string"},
+					"action":     map[string]any{"type": "string"},
+					"fileName":   map[string]any{"type": "string"},
+					"csvContent": map[string]any{"type": "string"},
 				},
-				"required": []any{"desiredFileName"},
+				"required": []any{"fileName", "csvContent"},
 			},
 		},
 	}
 	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
 	ctx.DryRun = true
 
-	cmd := &ExcelCreateCmd{FileName: "budget.xlsx"}
+	cmd := &ExcelCreateCmd{FileName: "budget.xlsx", CSVContent: "category,amount\ntravel,100"}
 	if err := cmd.Run(ctx); err != nil {
 		t.Fatalf("Run() error: %v", err)
 	}
@@ -57,8 +58,9 @@ func TestExcelCommentCmd_DryRun(t *testing.T) {
 					"driveId":     map[string]any{"type": "string"},
 					"documentId":  map[string]any{"type": "string"},
 					"cellAddress": map[string]any{"type": "string"},
+					"content":     map[string]any{"type": "string"},
 				},
-				"required": []any{"driveId", "documentId", "cellAddress"},
+				"required": []any{"driveId", "documentId", "cellAddress", "content"},
 			},
 		},
 	}

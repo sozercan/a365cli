@@ -5,7 +5,6 @@ import (
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
-	"github.com/sozercan/a365cli/internal/output"
 )
 
 // TriggersCmd groups all Triggers subcommands.
@@ -31,17 +30,7 @@ func triggersEndpoint() string {
 type TriggersEventsCmd struct{}
 
 func (c *TriggersEventsCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(triggersEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "list_event_types", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("list event types: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(triggersEndpoint(), "list_event_types", "list event types", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -56,19 +45,9 @@ type TriggersSchemaCmd struct {
 }
 
 func (c *TriggersSchemaCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(triggersEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "get_event_type_schema", map[string]any{
+	data, err := ctx.CallToolData(triggersEndpoint(), "get_event_type_schema", "get event type schema", map[string]any{
 		"eventType": c.EventType,
 	})
-	if err != nil {
-		return fmt.Errorf("get event type schema: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -83,19 +62,9 @@ type TriggersValidateCmd struct {
 }
 
 func (c *TriggersValidateCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(triggersEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "validate_trigger", map[string]any{
+	data, err := ctx.CallToolData(triggersEndpoint(), "validate_trigger", "validate trigger", map[string]any{
 		"userRequest": c.UserRequest,
 	})
-	if err != nil {
-		return fmt.Errorf("validate trigger: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -134,12 +103,7 @@ func (c *TriggersCreateCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(triggersEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "create_trigger_definition", map[string]any{
+	data, err := ctx.CallToolData(triggersEndpoint(), "create_trigger_definition", "create trigger", map[string]any{
 		"validationToken": c.ValidationToken,
 		"name":            c.Name,
 		"eventType":       c.EventType,
@@ -147,11 +111,6 @@ func (c *TriggersCreateCmd) Run(ctx *commands.Context) error {
 		"conditions":      c.Conditions,
 		"instructions":    c.Instructions,
 	})
-	if err != nil {
-		return fmt.Errorf("create trigger: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -164,17 +123,7 @@ func (c *TriggersCreateCmd) Run(ctx *commands.Context) error {
 type TriggersListCmd struct{}
 
 func (c *TriggersListCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(triggersEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "list_trigger_definitions", map[string]any{})
-	if err != nil {
-		return fmt.Errorf("list triggers: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(triggersEndpoint(), "list_trigger_definitions", "list triggers", map[string]any{})
 	if err != nil {
 		return err
 	}
@@ -189,19 +138,9 @@ type TriggersGetCmd struct {
 }
 
 func (c *TriggersGetCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(triggersEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "get_trigger_definition", map[string]any{
+	data, err := ctx.CallToolData(triggersEndpoint(), "get_trigger_definition", "get trigger", map[string]any{
 		"id": c.ID,
 	})
-	if err != nil {
-		return fmt.Errorf("get trigger: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -231,20 +170,10 @@ func (c *TriggersUpdateCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(triggersEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "update_trigger_definition", map[string]any{
+	data, err := ctx.CallToolData(triggersEndpoint(), "update_trigger_definition", "update trigger", map[string]any{
 		"validationToken": c.ValidationToken,
 		"id":              c.ID,
 	})
-	if err != nil {
-		return fmt.Errorf("update trigger: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -271,19 +200,9 @@ func (c *TriggersDeleteCmd) Run(ctx *commands.Context) error {
 		return err
 	}
 
-	client := ctx.NewMCPClient(triggersEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "delete_trigger_definition", map[string]any{
+	data, err := ctx.CallToolData(triggersEndpoint(), "delete_trigger_definition", "delete trigger", map[string]any{
 		"id": c.ID,
 	})
-	if err != nil {
-		return fmt.Errorf("delete trigger: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -299,20 +218,10 @@ type TriggersEvaluateCmd struct {
 }
 
 func (c *TriggersEvaluateCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(triggersEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "evaluate_event_triggers", map[string]any{
+	data, err := ctx.CallToolData(triggersEndpoint(), "evaluate_event_triggers", "evaluate triggers", map[string]any{
 		"eventType":     c.EventType,
 		"eventDataJson": c.EventDataJSON,
 	})
-	if err != nil {
-		return fmt.Errorf("evaluate triggers: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}

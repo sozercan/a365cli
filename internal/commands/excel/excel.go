@@ -5,7 +5,6 @@ import (
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
-	"github.com/sozercan/a365cli/internal/output"
 )
 
 // ExcelCmd groups all Excel subcommands.
@@ -22,30 +21,26 @@ func excelEndpoint() string {
 
 // ExcelCreateCmd creates a new Excel workbook.
 type ExcelCreateCmd struct {
-	FileName string `arg:"" help:"Desired file name for the new workbook"`
+	FileName   string `arg:"" help:"Desired file name for the new workbook"`
+	CSVContent string `help:"CSV content to populate the workbook" name:"csv-content" optional:"" default:""`
 }
 
 func (c *ExcelCreateCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(excelEndpoint(), "CreateWorkbook",
 			fmt.Sprintf("create Excel workbook %q", c.FileName),
-			map[string]any{"action": "excel.create", "desiredFileName": c.FileName},
+			map[string]any{
+				"action":     "excel.create",
+				"fileName":   c.FileName,
+				"csvContent": c.CSVContent,
+			},
 		)
 	}
 
-	client := ctx.NewMCPClient(excelEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "CreateWorkbook", map[string]any{
-		"desiredFileName": c.FileName,
+	data, err := ctx.CallToolData(excelEndpoint(), "CreateWorkbook", "create workbook", map[string]any{
+		"fileName":   c.FileName,
+		"csvContent": c.CSVContent,
 	})
-	if err != nil {
-		return fmt.Errorf("create workbook: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -54,25 +49,13 @@ func (c *ExcelCreateCmd) Run(ctx *commands.Context) error {
 
 // ExcelGetCmd gets Excel workbook content.
 type ExcelGetCmd struct {
-	DriveID    string `arg:"" help:"Drive ID"`
-	DocumentID string `arg:"" help:"Document ID"`
+	URL string `arg:"" help:"SharePoint sharing URL for the workbook"`
 }
 
 func (c *ExcelGetCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(excelEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetDocumentContent", map[string]any{
-		"driveId":    c.DriveID,
-		"documentId": c.DocumentID,
+	data, err := ctx.CallToolData(excelEndpoint(), "GetDocumentContent", "get workbook content", map[string]any{
+		"url": c.URL,
 	})
-	if err != nil {
-		return fmt.Errorf("get workbook content: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -91,26 +74,22 @@ func (c *ExcelCommentCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(excelEndpoint(), "CreateComment",
 			fmt.Sprintf("add comment to workbook %s at cell %s", c.DocumentID, c.CellAddress),
-			map[string]any{"action": "excel.comment", "driveId": c.DriveID, "documentId": c.DocumentID, "cellAddress": c.CellAddress},
+			map[string]any{
+				"action":      "excel.comment",
+				"driveId":     c.DriveID,
+				"documentId":  c.DocumentID,
+				"cellAddress": c.CellAddress,
+				"content":     c.Text,
+			},
 		)
 	}
 
-	client := ctx.NewMCPClient(excelEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "CreateComment", map[string]any{
+	data, err := ctx.CallToolData(excelEndpoint(), "CreateComment", "add comment", map[string]any{
 		"driveId":     c.DriveID,
 		"documentId":  c.DocumentID,
 		"cellAddress": c.CellAddress,
-		"text":        c.Text,
+		"content":     c.Text,
 	})
-	if err != nil {
-		return fmt.Errorf("add comment: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -129,26 +108,22 @@ func (c *ExcelReplyCmd) Run(ctx *commands.Context) error {
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(excelEndpoint(), "ReplyToComment",
 			fmt.Sprintf("reply to comment %s on workbook %s", c.CommentID, c.DocumentID),
-			map[string]any{"action": "excel.reply", "commentId": c.CommentID, "driveId": c.DriveID, "documentId": c.DocumentID},
+			map[string]any{
+				"action":     "excel.reply",
+				"commentId":  c.CommentID,
+				"driveId":    c.DriveID,
+				"documentId": c.DocumentID,
+				"newComment": c.Text,
+			},
 		)
 	}
 
-	client := ctx.NewMCPClient(excelEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "ReplyToComment", map[string]any{
+	data, err := ctx.CallToolData(excelEndpoint(), "ReplyToComment", "reply to comment", map[string]any{
 		"commentId":  c.CommentID,
 		"driveId":    c.DriveID,
 		"documentId": c.DocumentID,
-		"text":       c.Text,
+		"newComment": c.Text,
 	})
-	if err != nil {
-		return fmt.Errorf("reply to comment: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}

@@ -15,14 +15,96 @@ import (
 	"github.com/sozercan/a365cli/internal/testutil"
 )
 
+func setupCopilotChatTestContext(t *testing.T, onChat func(map[string]any)) (*commands.Context, *bytes.Buffer) {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+
+		var req struct {
+			ID     int             `json:"id"`
+			Method string          `json:"method"`
+			Params json.RawMessage `json:"params"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil {
+			http.Error(w, "bad json", http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Mcp-Session-Id", "test-session-id")
+
+		switch req.Method {
+		case "initialize":
+			io.WriteString(w, "event: message\ndata: "+testutil.MustJSON(map[string]any{
+				"jsonrpc": "2.0",
+				"id":      req.ID,
+				"result": map[string]any{
+					"protocolVersion": "2024-11-05",
+					"serverInfo":      map[string]any{"name": "test", "version": "1.0"},
+				},
+			})+"\n\n")
+		case "tools/call":
+			var params struct {
+				Name      string         `json:"name"`
+				Arguments map[string]any `json:"arguments"`
+			}
+			json.Unmarshal(req.Params, &params) //nolint:errcheck
+
+			if params.Name != copilotChatTool {
+				http.Error(w, "unknown tool", http.StatusBadRequest)
+				return
+			}
+			if onChat != nil {
+				onChat(params.Arguments)
+			}
+
+			io.WriteString(w, "event: message\ndata: "+testutil.MustJSON(map[string]any{
+				"jsonrpc": "2.0",
+				"id":      req.ID,
+				"result": map[string]any{
+					"content": []map[string]any{{"type": "text", "text": `{"message":"Quarterly summary","conversationId":"conv-123"}`}},
+				},
+			})+"\n\n")
+		default:
+			http.Error(w, "unknown method", http.StatusBadRequest)
+		}
+	}))
+	t.Cleanup(func() { server.Close() })
+	t.Setenv("A365_ENDPOINT", server.URL+"/")
+
+	var buf bytes.Buffer
+	ctx := &commands.Context{
+		Ctx: context.Background(),
+		TokenProvider: func(context.Context) (string, error) {
+			return "test-token", nil
+		},
+		Output: &output.Formatter{Format: output.FormatJSON, Writer: &buf},
+	}
+
+	return ctx, &buf
+}
+
 func TestCopilotChatCmd_Run(t *testing.T) {
-	ctx, buf := testutil.SetupTestServer(t, map[string]string{
-		copilotChatTool: `{"message":"Quarterly summary","conversationId":"conv-123"}`,
+	var chatArgs map[string]any
+	ctx, buf := setupCopilotChatTestContext(t, func(args map[string]any) {
+		chatArgs = args
 	})
 
 	cmd := &CopilotChatCmd{Message: "Summarize my week"}
 	if err := cmd.Run(ctx); err != nil {
 		t.Fatalf("Run() error: %v", err)
+	}
+
+	if enabled, ok := chatArgs["enableWebSearch"].(bool); !ok || !enabled {
+		t.Fatalf("expected enableWebSearch=true by default, got %v", chatArgs["enableWebSearch"])
+	}
+	if chatArgs["message"] != "Summarize my week" {
+		t.Fatalf("expected chat call to include message, got %v", chatArgs["message"])
 	}
 
 	var result map[string]any
@@ -34,6 +116,134 @@ func TestCopilotChatCmd_Run(t *testing.T) {
 	}
 	if result["conversationId"] != "conv-123" {
 		t.Fatalf("expected conversationId to round-trip, got %v", result["conversationId"])
+	}
+}
+
+func TestCopilotChatCmd_Run_DisablesWebSearchWhenRequested(t *testing.T) {
+	var chatArgs map[string]any
+	ctx, _ := setupCopilotChatTestContext(t, func(args map[string]any) {
+		chatArgs = args
+	})
+
+	cmd := &CopilotChatCmd{Message: "Summarize my week", NoWebSearch: true}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	if enabled, ok := chatArgs["enableWebSearch"].(bool); !ok || enabled {
+		t.Fatalf("expected enableWebSearch=false when --no-web-search is set, got %v", chatArgs["enableWebSearch"])
+	}
+}
+
+func TestCallCopilot_RetriesRetryableServiceError(t *testing.T) {
+	var toolCalls int
+	server := newCopilotToolServer(t, [][]map[string]any{
+		{
+			{"type": "text", "text": "Error: Error executing tool: Outgoing HTTP request timed-out.\r\nCorrelationId: retry-1, TimeStamp: 2025-12-17T17:58:01Z"},
+			{"type": "text", "text": "CorrelationId: retry-1, TimeStamp: 2025-12-17T17:58:01Z"},
+		},
+		{
+			{"type": "text", "text": `{"message":"Recovered answer","conversationId":"conv-123"}`},
+		},
+	}, &toolCalls)
+	t.Cleanup(func() { server.Close() })
+	t.Setenv("A365_ENDPOINT", server.URL+"/")
+
+	ctx := &commands.Context{
+		Ctx: context.Background(),
+		TokenProvider: func(context.Context) (string, error) {
+			return "test-token", nil
+		},
+		Output: &output.Formatter{Format: output.FormatHuman, Writer: io.Discard},
+	}
+
+	data, conversationID, err := callCopilot(ctx, "Summarize my week", "", "", true)
+	if err != nil {
+		t.Fatalf("callCopilot() error: %v", err)
+	}
+	if toolCalls != 2 {
+		t.Fatalf("expected 2 Copilot tool calls after retry, got %d", toolCalls)
+	}
+	if data["message"] != "Recovered answer" {
+		t.Fatalf("expected recovered message, got %v", data["message"])
+	}
+	if conversationID != "conv-123" {
+		t.Fatalf("expected conversation ID to round-trip, got %q", conversationID)
+	}
+}
+
+func TestCallCopilot_ReturnsRetryableServiceErrorAfterExhaustion(t *testing.T) {
+	var toolCalls int
+	server := newCopilotToolServer(t, [][]map[string]any{
+		{
+			{"type": "text", "text": "Error: Error executing tool: Outgoing HTTP request timed-out.\r\nCorrelationId: retry-1, TimeStamp: 2025-12-17T17:58:01Z"},
+			{"type": "text", "text": "CorrelationId: retry-1, TimeStamp: 2025-12-17T17:58:01Z"},
+		},
+		{
+			{"type": "text", "text": "Error: Error executing tool: Outgoing HTTP request timed-out.\r\nCorrelationId: retry-2, TimeStamp: 2025-12-17T17:58:02Z"},
+			{"type": "text", "text": "CorrelationId: retry-2, TimeStamp: 2025-12-17T17:58:02Z"},
+		},
+	}, &toolCalls)
+	t.Cleanup(func() { server.Close() })
+	t.Setenv("A365_ENDPOINT", server.URL+"/")
+
+	ctx := &commands.Context{
+		Ctx: context.Background(),
+		TokenProvider: func(context.Context) (string, error) {
+			return "test-token", nil
+		},
+		Output: &output.Formatter{Format: output.FormatHuman, Writer: io.Discard},
+	}
+
+	_, _, err := callCopilot(ctx, "Summarize my week", "", "", true)
+	if err == nil {
+		t.Fatal("expected retried timeout payload to surface as an error")
+	}
+	if toolCalls != 2 {
+		t.Fatalf("expected 2 Copilot tool calls before failing, got %d", toolCalls)
+	}
+	if !strings.Contains(err.Error(), "copilot chat: Error executing tool: Outgoing HTTP request timed-out.") {
+		t.Fatalf("expected timeout error message, got %v", err)
+	}
+	if strings.Count(err.Error(), "CorrelationId:") != 1 {
+		t.Fatalf("expected correlation metadata to be deduplicated, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "retry-2") {
+		t.Fatalf("expected final retry correlation ID, got %v", err)
+	}
+}
+
+func TestCallCopilot_ReturnsNonRetryableServiceErrorWithoutRetry(t *testing.T) {
+	var toolCalls int
+	server := newCopilotToolServer(t, [][]map[string]any{
+		{
+			{"type": "text", "text": "Error: Error executing tool: upstream unavailable.\r\nCorrelationId: fail-1, TimeStamp: 2025-12-17T17:58:01Z"},
+			{"type": "text", "text": "CorrelationId: fail-1, TimeStamp: 2025-12-17T17:58:01Z"},
+		},
+		{
+			{"type": "text", "text": `{"message":"unexpected retry"}`},
+		},
+	}, &toolCalls)
+	t.Cleanup(func() { server.Close() })
+	t.Setenv("A365_ENDPOINT", server.URL+"/")
+
+	ctx := &commands.Context{
+		Ctx: context.Background(),
+		TokenProvider: func(context.Context) (string, error) {
+			return "test-token", nil
+		},
+		Output: &output.Formatter{Format: output.FormatHuman, Writer: io.Discard},
+	}
+
+	_, _, err := callCopilot(ctx, "Summarize my week", "", "", true)
+	if err == nil {
+		t.Fatal("expected non-timeout tool failure to surface as an error")
+	}
+	if toolCalls != 1 {
+		t.Fatalf("expected non-retryable service error to avoid retry, got %d calls", toolCalls)
+	}
+	if !strings.Contains(err.Error(), "copilot chat: Error executing tool: upstream unavailable.") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -87,9 +297,42 @@ func TestPrintCopilotResponse_PlainUsesChatStyle(t *testing.T) {
 	if !strings.Contains(out, "Copilot: Here is the answer") {
 		t.Fatalf("expected Copilot-prefixed plain output, got %q", out)
 	}
-	if !strings.Contains(out, "conversationId:") || !strings.Contains(out, "conv-123") {
-		t.Fatalf("expected conversationId to remain visible in plain output, got %q", out)
+	if strings.Contains(out, "conversationId") || strings.Contains(out, "conv-123") {
+		t.Fatalf("expected conversationId to stay hidden in plain output, got %q", out)
 	}
+}
+
+func TestPrintCopilotResponse_NoInputOmitsChatPrefix(t *testing.T) {
+	var buf bytes.Buffer
+	ctx := &commands.Context{
+		Ctx:     context.Background(),
+		NoInput: true,
+		Output:  &output.Formatter{Format: output.FormatHuman, Writer: &buf},
+	}
+
+	err := printCopilotResponse(ctx, map[string]any{
+		"message":    "Here is the answer",
+		"references": []any{"doc-1"},
+	})
+	if err != nil {
+		t.Fatalf("printCopilotResponse() error: %v", err)
+	}
+
+	out := buf.String()
+	if strings.Contains(out, "Copilot:") {
+		t.Fatalf("expected no Copilot prefix for --no-input output, got %q", out)
+	}
+	if !strings.Contains(out, "Here is the answer") {
+		t.Fatalf("expected message output, got %q", out)
+	}
+	if !strings.Contains(out, "references:") || !strings.Contains(out, "doc-1") {
+		t.Fatalf("expected extra metadata to be preserved, got %q", out)
+	}
+}
+
+func TestStartCopilotSpinner_DisabledInVerboseMode(t *testing.T) {
+	stop := startCopilotSpinner(&commands.Context{Verbose: true})
+	stop()
 }
 
 func TestPrintCopilotResponse_ConversationPayload(t *testing.T) {
@@ -141,6 +384,58 @@ func TestNormalizeCopilotResponse(t *testing.T) {
 	if _, ok := data["messages"]; ok {
 		t.Fatalf("expected normalized payload to hide raw messages, got %v", data["messages"])
 	}
+}
+
+func newCopilotToolServer(t *testing.T, toolResponses [][]map[string]any, toolCalls *int) *httptest.Server {
+	t.Helper()
+
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+
+		var req struct {
+			ID     int             `json:"id"`
+			Method string          `json:"method"`
+			Params json.RawMessage `json:"params"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil {
+			http.Error(w, "bad json", http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Mcp-Session-Id", "test-session-id")
+
+		switch req.Method {
+		case "initialize":
+			io.WriteString(w, "event: message\ndata: "+testutil.MustJSON(map[string]any{
+				"jsonrpc": "2.0",
+				"id":      req.ID,
+				"result": map[string]any{
+					"protocolVersion": "2024-11-05",
+					"serverInfo":      map[string]any{"name": "test", "version": "1.0"},
+				},
+			})+"\n\n")
+		case "tools/call":
+			idx := *toolCalls
+			*toolCalls++
+			if idx >= len(toolResponses) {
+				idx = len(toolResponses) - 1
+			}
+			io.WriteString(w, "event: message\ndata: "+testutil.MustJSON(map[string]any{
+				"jsonrpc": "2.0",
+				"id":      req.ID,
+				"result": map[string]any{
+					"content": toolResponses[idx],
+				},
+			})+"\n\n")
+		default:
+			http.Error(w, "unknown method", http.StatusBadRequest)
+		}
+	}))
 }
 
 func TestRunInteractiveLoop_ReusesConversationID(t *testing.T) {
@@ -213,13 +508,19 @@ func TestRunInteractiveLoop_ReusesConversationID(t *testing.T) {
 		Output: &output.Formatter{Format: output.FormatHuman, Writer: &out},
 	}
 
-	err := runInteractiveLoop(ctx, strings.NewReader("first\nsecond\nquit\n"), &prompt, "")
+	err := runInteractiveLoop(ctx, strings.NewReader("first\nsecond\nquit\n"), &prompt, "", "", true)
 	if err != nil {
 		t.Fatalf("runInteractiveLoop() error: %v", err)
 	}
 
 	if len(calls) != 2 {
 		t.Fatalf("expected 2 Copilot calls, got %d", len(calls))
+	}
+	if enabled, ok := calls[0]["enableWebSearch"].(bool); !ok || !enabled {
+		t.Fatalf("expected first call to enable web search, got %v", calls[0]["enableWebSearch"])
+	}
+	if enabled, ok := calls[1]["enableWebSearch"].(bool); !ok || !enabled {
+		t.Fatalf("expected second call to enable web search, got %v", calls[1]["enableWebSearch"])
 	}
 	if _, ok := calls[0]["conversationId"]; ok {
 		t.Fatalf("expected first call to start without a conversation ID, got %v", calls[0]["conversationId"])
@@ -287,7 +588,7 @@ func TestRunInteractiveLoop_ReturnsErrorOnEOFFailure(t *testing.T) {
 		Output: &output.Formatter{Format: output.FormatHuman, Writer: &out},
 	}
 
-	err := runInteractiveLoop(ctx, strings.NewReader("first"), &prompt, "")
+	err := runInteractiveLoop(ctx, strings.NewReader("first"), &prompt, "", "", true)
 	if err == nil {
 		t.Fatal("expected EOF request failure to return an error")
 	}

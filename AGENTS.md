@@ -8,10 +8,12 @@
 ## Build and Test
 
 ```bash
-make build          # build
-make test           # go test ./... -v
-go test ./... -cover  # with coverage
-go vet ./...        # lint
+make build                 # build
+make test                  # go test ./... -v
+go test ./... -cover       # with coverage
+go vet ./...               # vet checks
+golangci-lint run ./...    # lint checks (matches CI)
+golangci-lint run ./... --fix  # auto-fix supported lint issues
 ```
 
 Binary is always called `a365`. Module is `github.com/sozercan/a365cli`.
@@ -26,14 +28,13 @@ func (c *MyCmd) Run(ctx *commands.Context) error {
     if ctx.DryRun { return ctx.ValidateDryRun(endpoint(), "ToolName", "do X", displayData, mcpArgs) }
     // 2. Confirm guard (destructive ops only)
     if err := ctx.Confirm("delete X"); err != nil { return err }
-    // 3. Create client + initialize
-    client := ctx.NewMCPClient(endpoint())
-    if err := client.Initialize(ctx.Ctx); err != nil { ... }
-    // 4. Call MCP tool
-    resp, err := client.CallTool(ctx.Ctx, "ToolName", map[string]any{...})
-    // 5. Extract + print
-    data, err := output.ExtractContent(resp)
-    return ctx.Output.PrintList("items", output.SomeColumns, rows)  // or PrintItem/PrintMutation
+    // 3. Build MCP args
+    args := map[string]any{...}
+    // 4. Call MCP tool + extract content via the shared execution seam
+    data, err := ctx.CallToolData(endpoint(), "ToolName", "do X", args)
+    if err != nil { return err }
+    // 5. Print
+    return ctx.Output.PrintListFromData("items", output.SomeColumns, data, 0, "items", "value") // or PrintItem/PrintMutation
 }
 ```
 
@@ -42,7 +43,8 @@ Adding a new service = new directory in `internal/commands/`, register in `main.
 ## Key Conventions
 
 - Use `config.Endpoint("service")` for server URLs, never hardcode
-- Use `output.ExtractContent()` then `ToRows()` for list data
+- Use `ctx.CallToolData()` for the normal initialize/call/extract path; reserve `ctx.NewMCPClient()` for custom protocol flows such as `tools/list`
+- Use `ctx.Output.PrintListFromData()` for standard list extraction/fallback/limit handling
 - Write ops: always add `--dry-run` guard with `ctx.ValidateDryRun(endpoint, toolName, action, displayData, mcpArgs)`
 - When display keys differ from MCP arg keys, pass mcpArgs as the 5th parameter for correct validation
 - Destructive ops: add `ctx.Confirm()` after dry-run check
@@ -56,7 +58,8 @@ Adding a new service = new directory in `internal/commands/`, register in `main.
 - Use plan mode for architectural changes or new service additions
 - Prefer `make build` over `go build`
 - Run `go test ./... -count=1` after any code change
-- Run `go vet ./...` before committing
+- Run `go vet ./...` and `golangci-lint run ./...` before committing
+- If lint issues look auto-fixable, try `golangci-lint run ./... --fix` before making manual edits
 - When adding a new M365 service, follow the pattern in CONTRIBUTING.md "Adding a New Service"
 - For live testing, the default client ID works out of the box — override with `A365_CLIENT_ID` if needed
 - Never post messages or modify data during testing without explicit user permission — use `--dry-run`

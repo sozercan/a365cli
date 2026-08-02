@@ -6,7 +6,6 @@ import (
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
-	"github.com/sozercan/a365cli/internal/output"
 )
 
 // SPListsCmd groups all SharePoint Lists subcommands.
@@ -38,19 +37,11 @@ type SPLSitesCmd struct {
 }
 
 func (c *SPLSitesCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
 	args := map[string]any{}
 	if c.Query != "" {
 		args["searchQuery"] = c.Query
 	}
-	resp, err := client.CallTool(ctx.Ctx, "searchSitesByName", args)
-	if err != nil {
-		return fmt.Errorf("search sites: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(spListsEndpoint(), "searchSitesByName", "search sites", args)
 	if err != nil {
 		return err
 	}
@@ -66,18 +57,10 @@ type SPLSiteCmd struct {
 }
 
 func (c *SPLSiteCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "getSiteByPath", map[string]any{
+	data, err := ctx.CallToolData(spListsEndpoint(), "getSiteByPath", "get site", map[string]any{
 		"hostname":           c.Hostname,
 		"serverRelativePath": c.ServerRelativePath,
 	})
-	if err != nil {
-		return fmt.Errorf("get site: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -92,17 +75,9 @@ type SPLSubsitesCmd struct {
 }
 
 func (c *SPLSubsitesCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "listSubsites", map[string]any{
+	data, err := ctx.CallToolData(spListsEndpoint(), "listSubsites", "list subsites", map[string]any{
 		"siteId": c.SiteID,
 	})
-	if err != nil {
-		return fmt.Errorf("list subsites: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -117,17 +92,9 @@ type SPLListsCmd struct {
 }
 
 func (c *SPLListsCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "listLists", map[string]any{
+	data, err := ctx.CallToolData(spListsEndpoint(), "listLists", "list lists", map[string]any{
 		"siteId": c.SiteID,
 	})
-	if err != nil {
-		return fmt.Errorf("list lists: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -143,18 +110,10 @@ type SPLItemsCmd struct {
 }
 
 func (c *SPLItemsCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "listListItems", map[string]any{
+	data, err := ctx.CallToolData(spListsEndpoint(), "listListItems", "list items", map[string]any{
 		"siteId": c.SiteID,
 		"listId": c.ListID,
 	})
-	if err != nil {
-		return fmt.Errorf("list items: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -170,18 +129,10 @@ type SPLColumnsCmd struct {
 }
 
 func (c *SPLColumnsCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "listListColumns", map[string]any{
+	data, err := ctx.CallToolData(spListsEndpoint(), "listListColumns", "list columns", map[string]any{
 		"siteId": c.SiteID,
 		"listId": c.ListID,
 	})
-	if err != nil {
-		return fmt.Errorf("list columns: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -203,18 +154,10 @@ func (c *SPLCreateCmd) Run(ctx *commands.Context) error {
 			map[string]any{"action": "sp-lists.create-list", "siteId": c.SiteID, "displayName": c.DisplayName},
 		)
 	}
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "createList", map[string]any{
+	data, err := ctx.CallToolData(spListsEndpoint(), "createList", "create list", map[string]any{
 		"siteId":      c.SiteID,
 		"displayName": c.DisplayName,
 	})
-	if err != nil {
-		return fmt.Errorf("create list: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -238,20 +181,12 @@ func (c *SPLAddColumnCmd) Run(ctx *commands.Context) error {
 			map[string]any{"action": "sp-lists.add-column", "siteId": c.SiteID, "listId": c.ListID, "name": c.Name, "columnType": c.ColumnType},
 		)
 	}
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "createListColumn", map[string]any{
+	data, err := ctx.CallToolData(spListsEndpoint(), "createListColumn", "add column", map[string]any{
 		"siteId":     c.SiteID,
 		"listId":     c.ListID,
 		"name":       c.Name,
 		"columnType": c.ColumnType,
 	})
-	if err != nil {
-		return fmt.Errorf("add column: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -279,19 +214,11 @@ func (c *SPLAddItemCmd) Run(ctx *commands.Context) error {
 			map[string]any{"action": "sp-lists.add-item", "siteId": c.SiteID, "listId": c.ListID, "fields": fields},
 		)
 	}
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "createListItem", map[string]any{
+	data, err := ctx.CallToolData(spListsEndpoint(), "createListItem", "add item", map[string]any{
 		"siteId": c.SiteID,
 		"listId": c.ListID,
 		"fields": fields,
 	})
-	if err != nil {
-		return fmt.Errorf("add item: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -315,10 +242,7 @@ func (c *SPLUpdateItemCmd) Run(ctx *commands.Context) error {
 			map[string]any{"action": "sp-lists.update-item", "siteId": c.SiteID, "listId": c.ListID, "itemId": c.ItemID},
 		)
 	}
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
+
 	args := map[string]any{
 		"siteId": c.SiteID,
 		"listId": c.ListID,
@@ -331,11 +255,7 @@ func (c *SPLUpdateItemCmd) Run(ctx *commands.Context) error {
 		}
 		args["fields"] = fields
 	}
-	resp, err := client.CallTool(ctx.Ctx, "updateListItem", args)
-	if err != nil {
-		return fmt.Errorf("update item: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(spListsEndpoint(), "updateListItem", "update item", args)
 	if err != nil {
 		return err
 	}
@@ -359,10 +279,7 @@ func (c *SPLEditColCmd) Run(ctx *commands.Context) error {
 			map[string]any{"action": "sp-lists.edit-column", "siteId": c.SiteID, "listId": c.ListID, "columnId": c.ColumnID},
 		)
 	}
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
+
 	args := map[string]any{
 		"siteId":   c.SiteID,
 		"listId":   c.ListID,
@@ -371,11 +288,7 @@ func (c *SPLEditColCmd) Run(ctx *commands.Context) error {
 	if c.Name != "" {
 		args["name"] = c.Name
 	}
-	resp, err := client.CallTool(ctx.Ctx, "editListColumn", args)
-	if err != nil {
-		return fmt.Errorf("edit column: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(spListsEndpoint(), "editListColumn", "edit column", args)
 	if err != nil {
 		return err
 	}
@@ -401,19 +314,11 @@ func (c *SPLDeleteItemCmd) Run(ctx *commands.Context) error {
 	if err := ctx.Confirm(fmt.Sprintf("delete item %s from list %s", c.ItemID, c.ListID)); err != nil {
 		return err
 	}
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "deleteListItem", map[string]any{
+	data, err := ctx.CallToolData(spListsEndpoint(), "deleteListItem", "delete item", map[string]any{
 		"siteId": c.SiteID,
 		"listId": c.ListID,
 		"itemId": c.ItemID,
 	})
-	if err != nil {
-		return fmt.Errorf("delete item: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -439,19 +344,11 @@ func (c *SPLDeleteColCmd) Run(ctx *commands.Context) error {
 	if err := ctx.Confirm(fmt.Sprintf("delete column %s from list %s", c.ColumnID, c.ListID)); err != nil {
 		return err
 	}
-	client := ctx.NewMCPClient(spListsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-	resp, err := client.CallTool(ctx.Ctx, "deleteListColumn", map[string]any{
+	data, err := ctx.CallToolData(spListsEndpoint(), "deleteListColumn", "delete column", map[string]any{
 		"siteId":   c.SiteID,
 		"listId":   c.ListID,
 		"columnId": c.ColumnID,
 	})
-	if err != nil {
-		return fmt.Errorf("delete column: %w", err)
-	}
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}

@@ -1,8 +1,6 @@
 package teams
 
 import (
-	"fmt"
-
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/output"
 )
@@ -14,11 +12,6 @@ type SearchCmd struct {
 }
 
 func (c *SearchCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{
 		"queryString": c.Query,
 	}
@@ -26,12 +19,7 @@ func (c *SearchCmd) Run(ctx *commands.Context) error {
 		args["size"] = c.Size
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "SearchTeamMessagesQueryParameters", args)
-	if err != nil {
-		return fmt.Errorf("search: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(teamsEndpoint(), "SearchTeamMessagesQueryParameters", "search", args)
 	if err != nil {
 		return err
 	}
@@ -97,11 +85,6 @@ type SearchNLCmd struct {
 }
 
 func (c *SearchNLCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{
 		"message": c.Query,
 	}
@@ -109,12 +92,7 @@ func (c *SearchNLCmd) Run(ctx *commands.Context) error {
 		args["conversationId"] = c.ConversationID
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "SearchTeamsMessages", args)
-	if err != nil {
-		return fmt.Errorf("search: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(teamsEndpoint(), "SearchTeamsMessages", "search", args)
 	if err != nil {
 		return err
 	}

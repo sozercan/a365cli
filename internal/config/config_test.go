@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestBaseURL_Default(t *testing.T) {
 	t.Setenv("A365_ENDPOINT", "")
@@ -23,6 +26,8 @@ func TestBaseURL_Override(t *testing.T) {
 
 func TestEndpoint(t *testing.T) {
 	t.Setenv("A365_ENDPOINT", "")
+	t.Setenv("A365_TENANT_ID", "")
+	t.Setenv(ResolvedTenantEnv, "")
 
 	tests := []struct {
 		service string
@@ -41,6 +46,67 @@ func TestEndpoint(t *testing.T) {
 			got := Endpoint(tt.service)
 			if got != tt.want {
 				t.Errorf("Endpoint(%q) = %q, want %q", tt.service, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEndpoint_TenantScoped(t *testing.T) {
+	t.Setenv("A365_ENDPOINT", "")
+	t.Setenv("A365_TENANT_ID", "00000000-0000-0000-0000-000000000000")
+	t.Setenv(ResolvedTenantEnv, "")
+
+	got := Endpoint("mail")
+	want := "https://agent365.svc.cloud.microsoft/agents/tenants/00000000-0000-0000-0000-000000000000/servers/mcp_MailTools"
+	if got != want {
+		t.Fatalf("Endpoint(\"mail\") = %q, want %q", got, want)
+	}
+}
+
+func TestEndpoint_OverrideWinsOverTenant(t *testing.T) {
+	t.Setenv("A365_ENDPOINT", "https://custom.example.com/agents/servers/")
+	t.Setenv("A365_TENANT_ID", "00000000-0000-0000-0000-000000000000")
+	t.Setenv(ResolvedTenantEnv, "")
+
+	got := Endpoint("mail")
+	want := "https://custom.example.com/agents/servers/mcp_MailTools/"
+	if got != want {
+		t.Fatalf("Endpoint(\"mail\") = %q, want %q", got, want)
+	}
+}
+
+func TestEndpoint_ResolvedTenantOverridesAuthorityAlias(t *testing.T) {
+	t.Setenv("A365_ENDPOINT", "")
+	t.Setenv("A365_TENANT_ID", "organizations")
+	t.Setenv(ResolvedTenantEnv, "00000000-0000-0000-0000-000000000000")
+
+	got := Endpoint("mail")
+	want := "https://agent365.svc.cloud.microsoft/agents/tenants/00000000-0000-0000-0000-000000000000/servers/mcp_MailTools"
+	if got != want {
+		t.Fatalf("Endpoint(\"mail\") = %q, want %q", got, want)
+	}
+}
+
+func TestResolveEndpointTenantID(t *testing.T) {
+	tests := []struct {
+		name       string
+		configured string
+		cached     string
+		want       string
+	}{
+		{name: "configured concrete", configured: "00000000-0000-0000-0000-000000000001", cached: "00000000-0000-0000-0000-000000000002", want: "00000000-0000-0000-0000-000000000001"},
+		{name: "empty uses cached", cached: "00000000-0000-0000-0000-000000000002", want: "00000000-0000-0000-0000-000000000002"},
+		{name: "organizations uses cached", configured: "organizations", cached: "00000000-0000-0000-0000-000000000002", want: "00000000-0000-0000-0000-000000000002"},
+		{name: "common uses cached", configured: "COMMON", cached: "00000000-0000-0000-0000-000000000002", want: "00000000-0000-0000-0000-000000000002"},
+		{name: "verified domain rejects unrelated cached directory ID", configured: "contoso.onmicrosoft.com", cached: "00000000-0000-0000-0000-000000000002", want: ""},
+		{name: "verified domain without cached directory ID", configured: "contoso.onmicrosoft.com", want: ""},
+		{name: "alias without cache", configured: "consumers", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ResolveEndpointTenantID(tt.configured, tt.cached); got != tt.want {
+				t.Fatalf("ResolveEndpointTenantID(%q, %q) = %q, want %q", tt.configured, tt.cached, got, tt.want)
 			}
 		})
 	}
@@ -103,5 +169,44 @@ func TestServers_HasExpectedKeys(t *testing.T) {
 		if _, ok := Servers[key]; !ok {
 			t.Errorf("Servers map missing expected key %q", key)
 		}
+	}
+}
+
+func TestMCPResponseHeaderTimeout(t *testing.T) {
+	t.Setenv("A365_MCP_RESPONSE_HEADER_TIMEOUT", "")
+	t.Setenv("A365_COPILOT_RESPONSE_HEADER_TIMEOUT", "")
+
+	if got := MCPResponseHeaderTimeout(""); got != DefaultMCPResponseHeaderTimeout {
+		t.Fatalf(`MCPResponseHeaderTimeout("") = %v, want %v`, got, DefaultMCPResponseHeaderTimeout)
+	}
+	if got := MCPResponseHeaderTimeout("copilot"); got != DefaultCopilotResponseHeaderTimeout {
+		t.Fatalf(`MCPResponseHeaderTimeout("copilot") = %v, want %v`, got, DefaultCopilotResponseHeaderTimeout)
+	}
+
+	t.Setenv("A365_MCP_RESPONSE_HEADER_TIMEOUT", "90s")
+	if got := MCPResponseHeaderTimeout(""); got != 90*time.Second {
+		t.Fatalf("global override = %v, want %v", got, 90*time.Second)
+	}
+	if got := MCPResponseHeaderTimeout("copilot"); got != 90*time.Second {
+		t.Fatalf("global override for copilot = %v, want %v", got, 90*time.Second)
+	}
+
+	t.Setenv("A365_COPILOT_RESPONSE_HEADER_TIMEOUT", "3m")
+	if got := MCPResponseHeaderTimeout("copilot"); got != 3*time.Minute {
+		t.Fatalf("copilot override = %v, want %v", got, 3*time.Minute)
+	}
+
+	t.Setenv("A365_MCP_RESPONSE_HEADER_TIMEOUT", "invalid")
+	t.Setenv("A365_COPILOT_RESPONSE_HEADER_TIMEOUT", "invalid")
+	if got := MCPResponseHeaderTimeout(""); got != DefaultMCPResponseHeaderTimeout {
+		t.Fatalf("invalid global override should fall back to default, got %v", got)
+	}
+	if got := MCPResponseHeaderTimeout("copilot"); got != DefaultCopilotResponseHeaderTimeout {
+		t.Fatalf("invalid copilot override should fall back to default, got %v", got)
+	}
+
+	t.Setenv("A365_COPILOT_RESPONSE_HEADER_TIMEOUT", "0")
+	if got := MCPResponseHeaderTimeout("copilot"); got != 0 {
+		t.Fatalf("copilot zero override = %v, want 0", got)
 	}
 }

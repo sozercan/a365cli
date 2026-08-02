@@ -32,11 +32,6 @@ type ChatsListCmd struct {
 }
 
 func (c *ChatsListCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{}
 	if len(c.UPNs) > 0 {
 		args["userUpns"] = c.UPNs
@@ -52,20 +47,11 @@ func (c *ChatsListCmd) Run(ctx *commands.Context) error {
 		args["top"] = c.Max
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "ListChats", args)
-	if err != nil {
-		return fmt.Errorf("list chats: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(teamsEndpoint(), "ListChats", "list chats", args)
 	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "chats")
-	if c.Max > 0 && len(rows) > c.Max {
-		rows = rows[:c.Max]
-	}
-	return ctx.Output.PrintList("chats", output.ChatsColumns, rows)
+	return ctx.Output.PrintListFromData("chats", output.ChatsColumns, data, c.Max)
 }
 
 // ChatsGetCmd gets a specific chat.
@@ -74,19 +60,9 @@ type ChatsGetCmd struct {
 }
 
 func (c *ChatsGetCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetChat", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "GetChat", "get chat", map[string]any{
 		"chatId": c.ChatID,
 	})
-	if err != nil {
-		return fmt.Errorf("get chat: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -100,27 +76,13 @@ type ChatsMessagesCmd struct {
 }
 
 func (c *ChatsMessagesCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "ListChatMessages", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "ListChatMessages", "list chat messages", map[string]any{
 		"chatId": c.ChatID,
 	})
 	if err != nil {
-		return fmt.Errorf("list chat messages: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
-	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "messages")
-	if c.Max > 0 && len(rows) > c.Max {
-		rows = rows[:c.Max]
-	}
-	return ctx.Output.PrintList("messages", output.MessagesColumns, rows)
+	return ctx.Output.PrintListFromData("messages", output.MessagesColumns, data, c.Max)
 }
 
 // ChatsSendCmd sends a message to a chat.
@@ -141,20 +103,10 @@ func (c *ChatsSendCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "PostMessage", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "PostMessage", "send message", map[string]any{
 		"chatId":  c.ChatID,
 		"content": c.Message,
 	})
-	if err != nil {
-		return fmt.Errorf("send message: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -174,19 +126,9 @@ func (c *ChatsSendSelfCmd) Run(ctx *commands.Context) error {
 		})
 	}
 
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "SendMessageToSelf", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "SendMessageToSelf", "send to self", map[string]any{
 		"content": c.Message,
 	})
-	if err != nil {
-		return fmt.Errorf("send to self: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -200,20 +142,10 @@ type ChatsGetMessageCmd struct {
 }
 
 func (c *ChatsGetMessageCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "GetChatMessage", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "GetChatMessage", "get message", map[string]any{
 		"chatId":    c.ChatID,
 		"messageId": c.MessageID,
 	})
-	if err != nil {
-		return fmt.Errorf("get message: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -242,11 +174,6 @@ func (c *ChatsCreateCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
 	args := map[string]any{
 		"chatType":     c.Type,
 		"members_upns": c.Members,
@@ -255,12 +182,7 @@ func (c *ChatsCreateCmd) Run(ctx *commands.Context) error {
 		args["topic"] = c.Topic
 	}
 
-	resp, err := client.CallTool(ctx.Ctx, "CreateChat", args)
-	if err != nil {
-		return fmt.Errorf("create chat: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
+	data, err := ctx.CallToolData(teamsEndpoint(), "CreateChat", "create chat", args)
 	if err != nil {
 		return err
 	}
@@ -284,19 +206,9 @@ func (c *ChatsDeleteCmd) Run(ctx *commands.Context) error {
 		return err
 	}
 
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "DeleteChat", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "DeleteChat", "delete chat", map[string]any{
 		"chatId": c.ChatID,
 	})
-	if err != nil {
-		return fmt.Errorf("delete chat: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -317,20 +229,10 @@ func (c *ChatsUpdateCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "UpdateChat", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "UpdateChat", "update chat", map[string]any{
 		"chatId": c.ChatID,
 		"topic":  c.Topic,
 	})
-	if err != nil {
-		return fmt.Errorf("update chat: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -359,21 +261,11 @@ func (c *ChatsUpdateMessageCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "UpdateChatMessage", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "UpdateChatMessage", "update message", map[string]any{
 		"chatId":    c.ChatID,
 		"messageId": c.MessageID,
 		"content":   c.Content,
 	})
-	if err != nil {
-		return fmt.Errorf("update message: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -398,20 +290,10 @@ func (c *ChatsDeleteMessageCmd) Run(ctx *commands.Context) error {
 		return err
 	}
 
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "DeleteChatMessage", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "DeleteChatMessage", "delete message", map[string]any{
 		"chatId":    c.ChatID,
 		"messageId": c.MessageID,
 	})
-	if err != nil {
-		return fmt.Errorf("delete message: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}
@@ -426,27 +308,13 @@ type ChatsListMembersCmd struct {
 }
 
 func (c *ChatsListMembersCmd) Run(ctx *commands.Context) error {
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "ListChatMembers", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "ListChatMembers", "list chat members", map[string]any{
 		"chatId": c.ChatID,
 	})
 	if err != nil {
-		return fmt.Errorf("list chat members: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
-	if err != nil {
 		return err
 	}
-	rows := output.ToRows(data, "members")
-	if rows == nil {
-		rows = output.ToRows(data, "value")
-	}
-	return ctx.Output.PrintList("members", output.MembersColumns, rows)
+	return ctx.Output.PrintListFromData("members", output.MembersColumns, data, 0, "members", "value")
 }
 
 // ChatsAddMemberCmd adds a member to a chat.
@@ -471,22 +339,12 @@ func (c *ChatsAddMemberCmd) Run(ctx *commands.Context) error {
 		)
 	}
 
-	client := ctx.NewMCPClient(teamsEndpoint())
-	if err := client.Initialize(ctx.Ctx); err != nil {
-		return fmt.Errorf("initialize: %w", err)
-	}
-
-	resp, err := client.CallTool(ctx.Ctx, "AddChatMember", map[string]any{
+	data, err := ctx.CallToolData(teamsEndpoint(), "AddChatMember", "add chat member", map[string]any{
 		"chatId":         c.ChatID,
 		"roles":          c.Roles,
 		"userodata_bind": fmt.Sprintf("https://graph.microsoft.com/v1.0/users('%s')", c.UPN),
 		"odata_type":     "#microsoft.graph.aadUserConversationMember",
 	})
-	if err != nil {
-		return fmt.Errorf("add chat member: %w", err)
-	}
-
-	data, err := output.ExtractContent(resp)
 	if err != nil {
 		return err
 	}

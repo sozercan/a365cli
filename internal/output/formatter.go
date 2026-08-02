@@ -54,6 +54,42 @@ func (f *Formatter) PrintList(entity string, columns []Column, rows []map[string
 	}
 }
 
+// PrintListFromData extracts the first list found under keys, applies an optional
+// max limit, and prints it with the given entity name and column definitions.
+// If none of the keys contain a list, it falls back to printing the full item so
+// callers keep useful output when a server returns an unexpected shape.
+func (f *Formatter) PrintListFromData(entity string, columns []Column, data map[string]any, max int, keys ...string) error {
+	rows := RowsFromData(data, max, appendDefaultKey(entity, keys)...)
+	if rows == nil {
+		return f.PrintItem(data)
+	}
+	return f.PrintList(entity, columns, rows)
+}
+
+// RowsFromData extracts the first list found under keys and applies an optional
+// max limit. A missing or non-list key returns nil; a present empty list returns
+// an empty slice.
+func RowsFromData(data map[string]any, max int, keys ...string) []map[string]any {
+	for _, key := range keys {
+		rows := ToRows(data, key)
+		if rows == nil {
+			continue
+		}
+		if max > 0 && len(rows) > max {
+			return rows[:max]
+		}
+		return rows
+	}
+	return nil
+}
+
+func appendDefaultKey(entity string, keys []string) []string {
+	if len(keys) > 0 {
+		return keys
+	}
+	return []string{entity}
+}
+
 // PrintItem outputs a single item.
 func (f *Formatter) PrintItem(item map[string]any) error {
 	switch f.Format {

@@ -15,17 +15,18 @@ func TestWordCreateCmd_DryRun(t *testing.T) {
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"action":          map[string]any{"type": "string"},
-					"desiredFileName": map[string]any{"type": "string"},
+					"action":        map[string]any{"type": "string"},
+					"fileName":      map[string]any{"type": "string"},
+					"contentInHtml": map[string]any{"type": "string"},
 				},
-				"required": []any{"desiredFileName"},
+				"required": []any{"fileName", "contentInHtml"},
 			},
 		},
 	}
 	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
 	ctx.DryRun = true
 
-	cmd := &WordCreateCmd{FileName: "report.docx"}
+	cmd := &WordCreateCmd{FileName: "report.docx", ContentInHTML: "<p>Status update</p>"}
 	if err := cmd.Run(ctx); err != nil {
 		t.Fatalf("Run() error: %v", err)
 	}
@@ -56,8 +57,9 @@ func TestWordCommentCmd_DryRun(t *testing.T) {
 					"action":     map[string]any{"type": "string"},
 					"driveId":    map[string]any{"type": "string"},
 					"documentId": map[string]any{"type": "string"},
+					"newComment": map[string]any{"type": "string"},
 				},
-				"required": []any{"driveId", "documentId"},
+				"required": []any{"driveId", "documentId", "newComment"},
 			},
 		},
 	}
