@@ -26,6 +26,8 @@ func TestBaseURL_Override(t *testing.T) {
 
 func TestEndpoint(t *testing.T) {
 	t.Setenv("A365_ENDPOINT", "")
+	t.Setenv("A365_TENANT_ID", "")
+	t.Setenv(ResolvedTenantEnv, "")
 
 	tests := []struct {
 		service string
@@ -44,6 +46,67 @@ func TestEndpoint(t *testing.T) {
 			got := Endpoint(tt.service)
 			if got != tt.want {
 				t.Errorf("Endpoint(%q) = %q, want %q", tt.service, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEndpoint_TenantScoped(t *testing.T) {
+	t.Setenv("A365_ENDPOINT", "")
+	t.Setenv("A365_TENANT_ID", "00000000-0000-0000-0000-000000000000")
+	t.Setenv(ResolvedTenantEnv, "")
+
+	got := Endpoint("mail")
+	want := "https://agent365.svc.cloud.microsoft/agents/tenants/00000000-0000-0000-0000-000000000000/servers/mcp_MailTools"
+	if got != want {
+		t.Fatalf("Endpoint(\"mail\") = %q, want %q", got, want)
+	}
+}
+
+func TestEndpoint_OverrideWinsOverTenant(t *testing.T) {
+	t.Setenv("A365_ENDPOINT", "https://custom.example.com/agents/servers/")
+	t.Setenv("A365_TENANT_ID", "00000000-0000-0000-0000-000000000000")
+	t.Setenv(ResolvedTenantEnv, "")
+
+	got := Endpoint("mail")
+	want := "https://custom.example.com/agents/servers/mcp_MailTools/"
+	if got != want {
+		t.Fatalf("Endpoint(\"mail\") = %q, want %q", got, want)
+	}
+}
+
+func TestEndpoint_ResolvedTenantOverridesAuthorityAlias(t *testing.T) {
+	t.Setenv("A365_ENDPOINT", "")
+	t.Setenv("A365_TENANT_ID", "organizations")
+	t.Setenv(ResolvedTenantEnv, "00000000-0000-0000-0000-000000000000")
+
+	got := Endpoint("mail")
+	want := "https://agent365.svc.cloud.microsoft/agents/tenants/00000000-0000-0000-0000-000000000000/servers/mcp_MailTools"
+	if got != want {
+		t.Fatalf("Endpoint(\"mail\") = %q, want %q", got, want)
+	}
+}
+
+func TestResolveEndpointTenantID(t *testing.T) {
+	tests := []struct {
+		name       string
+		configured string
+		cached     string
+		want       string
+	}{
+		{name: "configured concrete", configured: "00000000-0000-0000-0000-000000000001", cached: "00000000-0000-0000-0000-000000000002", want: "00000000-0000-0000-0000-000000000001"},
+		{name: "empty uses cached", cached: "00000000-0000-0000-0000-000000000002", want: "00000000-0000-0000-0000-000000000002"},
+		{name: "organizations uses cached", configured: "organizations", cached: "00000000-0000-0000-0000-000000000002", want: "00000000-0000-0000-0000-000000000002"},
+		{name: "common uses cached", configured: "COMMON", cached: "00000000-0000-0000-0000-000000000002", want: "00000000-0000-0000-0000-000000000002"},
+		{name: "verified domain rejects unrelated cached directory ID", configured: "contoso.onmicrosoft.com", cached: "00000000-0000-0000-0000-000000000002", want: ""},
+		{name: "verified domain without cached directory ID", configured: "contoso.onmicrosoft.com", want: ""},
+		{name: "alias without cache", configured: "consumers", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ResolveEndpointTenantID(tt.configured, tt.cached); got != tt.want {
+				t.Fatalf("ResolveEndpointTenantID(%q, %q) = %q, want %q", tt.configured, tt.cached, got, tt.want)
 			}
 		})
 	}

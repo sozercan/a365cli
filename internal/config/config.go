@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -36,6 +38,11 @@ const (
 
 	// DefaultCopilotResponseHeaderTimeout is longer because Copilot requests can take longer to start streaming.
 	DefaultCopilotResponseHeaderTimeout = 5 * time.Minute
+
+	// ResolvedTenantEnv is an internal process-local override for the concrete
+	// tenant used in first-party MCP endpoint paths. It is distinct from
+	// A365_TENANT_ID, which may contain an authority alias such as organizations.
+	ResolvedTenantEnv = "A365_RESOLVED_TENANT_ID"
 )
 
 // Servers maps friendly names to agent365 MCP server names.
@@ -146,7 +153,48 @@ func Endpoint(service string) string {
 	if !ok {
 		return ""
 	}
+
+	// Explicit endpoint overrides retain their historical base-URL behavior for
+	// local mocks and private gateways.
+	if os.Getenv("A365_ENDPOINT") != "" {
+		return BaseURL() + server + "/"
+	}
+
+	// Agent 365 first-party MCP endpoints are tenant scoped. The tenant is
+	// resolved from explicit configuration or the cached authentication record
+	// by main before command execution.
+	tenantID := strings.TrimSpace(os.Getenv(ResolvedTenantEnv))
+	if tenantID == "" {
+		tenantID = ResolveEndpointTenantID(os.Getenv("A365_TENANT_ID"), "")
+	}
+	if tenantID != "" {
+		return "https://agent365.svc.cloud.microsoft/agents/tenants/" + url.PathEscape(tenantID) + "/servers/" + server
+	}
+
+	// Keep the legacy endpoint as a compatibility fallback for callers that use
+	// config.Endpoint outside the authenticated CLI startup path.
 	return BaseURL() + server + "/"
+}
+
+// ResolveEndpointTenantID chooses a concrete tenant for MCP endpoint routing.
+// Authority aliases are valid for authentication but not for tenant-scoped
+// Agent 365 endpoint paths, so they fall back to the cached concrete tenant.
+func ResolveEndpointTenantID(configured, cached string) string {
+	configured = strings.TrimSpace(configured)
+	if tenantID, err := uuid.Parse(configured); err == nil {
+		return tenantID.String()
+	}
+
+	// Tenant-agnostic authority aliases may safely use the concrete directory ID
+	// selected during authentication. A configured verified domain must not be
+	// paired with a cached ID because the record may belong to another tenant.
+	switch strings.ToLower(configured) {
+	case "", "common", "organizations", "consumers":
+		if tenantID, err := uuid.Parse(strings.TrimSpace(cached)); err == nil {
+			return tenantID.String()
+		}
+	}
+	return ""
 }
 
 // Authority returns the Entra ID authority URL. If tenantID is set, uses

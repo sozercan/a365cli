@@ -8,7 +8,7 @@ A standalone, agent-friendly CLI for Microsoft 365 via [agent365](https://agent3
 - **170+ MCP tools** — full API coverage with dynamic server discovery
 - **Agent-friendly** — structured `--output=json` for LLM tool use, `--no-input` for non-interactive execution, `--dry-run` for safe exploration
 - **Three output modes** — human tables (default), JSON for scripting, TSV for piping
-- **Interactive browser auth** with PKCE — silent re-auth on subsequent runs
+- **Interactive browser auth** with PKCE — persistent silent re-auth on supported native-cache builds
 - **Resilient** — automatic retries with backoff on 502/503/429, MCP session caching
 - **Configurable** — `~/.a365/config.json` for persistent defaults, env vars, CLI flags
 - **Shell completion** — bash, zsh, fish
@@ -20,7 +20,7 @@ A standalone, agent-friendly CLI for Microsoft 365 via [agent365](https://agent3
 # Install
 brew tap sozercan/repo && brew install a365
 
-# Authenticate (opens browser once, tokens are cached)
+# Authenticate (native-cache builds persist tokens in the OS credential store)
 a365 auth login
 
 # Use it
@@ -45,9 +45,24 @@ brew tap sozercan/repo
 brew install a365
 ```
 
+The macOS Homebrew artifact is a CGO-enabled native build signed with a
+Developer ID Application certificate. It can persist refresh tokens in macOS
+Keychain. Homebrew on Linux installs the portable CGO-disabled artifact, which
+does not persist the OS-backed token cache between CLI processes.
+
 ### GitHub Releases
 
-Pre-built binaries for Linux, macOS, and Windows are available on the [Releases](https://github.com/sozercan/a365cli/releases) page.
+Pre-built binaries are available on the [Releases](https://github.com/sozercan/a365cli/releases) page:
+
+| Platform | Release build | Persistent OS token cache |
+|----------|---------------|---------------------------|
+| macOS | Native, CGO enabled, certificate signed | Yes, through Keychain |
+| Linux | Portable, CGO disabled | No |
+| Windows | Portable, CGO disabled | No |
+
+Static/portable builds still authenticate, but a later interactive CLI process
+may open the browser again because the non-CGO implementation does not persist
+the refresh-token cache. `--no-input` always disables that fallback.
 
 ### go install
 
@@ -55,9 +70,43 @@ Pre-built binaries for Linux, macOS, and Windows are available on the [Releases]
 go install github.com/sozercan/a365cli@latest
 ```
 
+`go install` uses the local Go toolchain's CGO setting and does not apply the
+project's macOS certificate-signing policy. On macOS, do not use a raw
+`go install` or `go build` result as the canonical `a365` on your PATH: replacing
+a Keychain-enabled executable with differently signed builds can cause repeated
+Keychain authorization prompts. Use the Makefile workflow below for source
+builds.
+
+### Build from source
+
+On macOS, the canonical native build automatically selects the first valid
+**Apple Development** codesigning identity, falling back to **Developer ID
+Application** when needed:
+
+```bash
+make build
+```
+
+Override the detected identity with a certificate SHA-1 or exact identity name:
+
+```bash
+A365_CODESIGN_IDENTITY="<certificate SHA-1 or exact identity name>" make build
+```
+
+If no valid certificate-backed identity exists, the build fails with guidance
+instead of silently producing an unstable canonical binary.
+
+Use `make build-adhoc` only for a disposable development binary. It is
+intentionally ad-hoc signed and may trigger a new Keychain authorization prompt
+when it replaces another build. The first migration to the fixed canonical
+identifier and certificate may also require one deliberate Keychain approval;
+keep the identity and install path stable afterward. Use `make build-static` for
+a portable pure-Go binary without persistent OS token caching. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the complete build and release matrix.
+
 ## Authentication
 
-a365 uses Entra ID interactive browser authentication with PKCE. On first run it opens your browser; after that, tokens refresh silently.
+a365 uses Entra ID interactive browser authentication with PKCE. On a supported native-cache build, the refresh-token cache is persisted in the OS credential store so later processes can refresh silently; ordinary commands fail with explicit login guidance instead of unexpectedly opening a browser when that cache is unavailable. Portable CGO-disabled builds have no durable token cache, so interactive commands may open the browser again to remain usable. `--no-input` is a hard no-browser mode on every build.
 
 A built-in client ID is provided by default. If your tenant requires a custom app registration, set your own via `--client-id` or `A365_CLIENT_ID`.
 
@@ -65,7 +114,7 @@ A built-in client ID is provided by default. If your tenant requires a custom ap
 # Login (uses the built-in client ID by default)
 a365 auth login
 
-# Check status
+# Check for cached account metadata (does not validate a live token)
 a365 auth status
 
 # View token details (scopes, expiry)
