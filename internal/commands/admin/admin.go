@@ -53,28 +53,36 @@ type AdminSetLicenseCmd struct {
 }
 
 func (c *AdminSetLicenseCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(adminEndpoint(), "mcp_Admin365_LicenseMgmtTools",
-			fmt.Sprintf("update licenses for user %s", c.UserID),
-			map[string]any{
-				"action":         "admin.set-license",
-				"userId":         c.UserID,
-				"addLicenses":    c.AddLicenses,
-				"removeLicenses": c.RemoveLicenses,
-			},
-		)
-	}
-
 	addList := make([]map[string]any, 0, len(c.AddLicenses))
 	for _, sku := range c.AddLicenses {
 		addList = append(addList, map[string]any{"skuId": sku})
 	}
 
-	data, err := ctx.CallToolData(adminEndpoint(), "mcp_Admin365_LicenseMgmtTools", "set license", map[string]any{
+	removeList := append([]string(nil), c.RemoveLicenses...)
+	if removeList == nil {
+		removeList = []string{}
+	}
+
+	args := map[string]any{
 		"userId":         c.UserID,
 		"addLicenses":    addList,
-		"removeLicenses": c.RemoveLicenses,
-	})
+		"removeLicenses": removeList,
+	}
+
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(adminEndpoint(), "mcp_Admin365_LicenseMgmtTools",
+			fmt.Sprintf("update licenses for user %s", c.UserID),
+			map[string]any{
+				"action":             "admin.set-license",
+				"userId":             c.UserID,
+				"addLicenseCount":    len(c.AddLicenses),
+				"removeLicenseCount": len(c.RemoveLicenses),
+			},
+			args,
+		)
+	}
+
+	data, err := ctx.CallToolData(adminEndpoint(), "mcp_Admin365_LicenseMgmtTools", "set license", args)
 	if err != nil {
 		return err
 	}

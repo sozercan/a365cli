@@ -63,7 +63,8 @@ func TestODRMkdirCmd_DryRun(t *testing.T) {
 		{
 			Name: "createFolderInMyOnedrive",
 			InputSchema: map[string]any{
-				"type": "object",
+				"type":                 "object",
+				"additionalProperties": false,
 				"properties": map[string]any{
 					"folderName": map[string]any{"type": "string"},
 				},
@@ -95,6 +96,105 @@ func TestODRMkdirCmd_DryRun(t *testing.T) {
 	}
 	if val["valid"] != true {
 		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
+	}
+}
+
+func TestODRWriteCmd_DryRunValidatesMCPArgsAndRedactsContent(t *testing.T) {
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "createSmallTextFileInMyOnedrive",
+			InputSchema: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties": map[string]any{
+					"filename":    map[string]any{"type": "string"},
+					"contentText": map[string]any{"type": "string"},
+				},
+				"required": []any{"filename", "contentText"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
+	ctx.DryRun = true
+
+	const content = "confidential project notes"
+	cmd := &ODRWriteCmd{Filename: "notes.txt", ContentText: content}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
+	}
+	if strings.Contains(buf.String(), content) {
+		t.Fatal("raw file content leaked into dry-run output")
+	}
+	if _, ok := result["contentText"]; ok {
+		t.Fatal("contentText should not be present in dry-run output")
+	}
+	if result["contentType"] != "text/plain" {
+		t.Errorf("expected contentType=text/plain, got %v", result["contentType"])
+	}
+	if result["contentLength"] != float64(len(content)) {
+		t.Errorf("expected contentLength=%d, got %v", len(content), result["contentLength"])
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object in dry-run output")
+	}
+	if val["valid"] != true {
+		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
+	}
+}
+
+func TestODRShareCmd_DryRunUsesArrayRoles(t *testing.T) {
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "shareFileOrFolderInMyOnedrive",
+			InputSchema: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties": map[string]any{
+					"fileOrFolderId": map[string]any{"type": "string"},
+					"recipientEmails": map[string]any{
+						"type":  "array",
+						"items": map[string]any{"type": "string"},
+					},
+					"roles": map[string]any{
+						"type":  "array",
+						"items": map[string]any{"type": "string"},
+					},
+				},
+				"required": []any{"fileOrFolderId", "recipientEmails", "roles"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
+	ctx.DryRun = true
+
+	cmd := &ODRShareCmd{
+		FileOrFolderID:  "item-001",
+		RecipientEmails: []string{"alice@contoso.com"},
+		Roles:           "read",
+	}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object in dry-run output")
+	}
+	if val["valid"] != true {
+		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
+	}
+	if strings.Contains(buf.String(), "alice@contoso.com") {
+		t.Fatalf("dry-run output leaked recipient address: %s", buf.String())
 	}
 }
 

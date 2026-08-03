@@ -12,12 +12,12 @@ Manage SharePoint list sites, lists, items, and columns.
 | `sp-lists lists` | List SharePoint lists in a site | `<site-id>` |
 | `sp-lists items` | List items in a list | `<site-id>` `<list-id>` |
 | `sp-lists columns` | List columns in a list | `<site-id>` `<list-id>` |
-| `sp-lists create` | Create a new list | `<site-id>` `<display-name>` |
-| `sp-lists add-column` | Add a column to a list | `<site-id>` `<list-id>` `<name>` `<type>` |
+| `sp-lists create` | Create a new list | `<site-id>` `<display-name>` `--template` |
+| `sp-lists add-column` | Add a column to a list | `<site-id>` `<list-id>` `<name>` `<type>` `--column-settings` |
 | `sp-lists add-item` | Add an item to a list | `<site-id>` `<list-id>` `<fields-json>` |
-| `sp-lists update-item` | Update a list item | `<site-id>` `<list-id>` `<item-id>` `--fields` |
+| `sp-lists update-item` | Update a list item | `<site-id>` `<list-id>` `<item-id>` `--fields` `--if-match` |
 | `sp-lists edit-column` | Edit a list column | `<site-id>` `<list-id>` `<column-id>` `--name` |
-| `sp-lists delete-item` | Delete a list item | `<site-id>` `<list-id>` `<item-id>` |
+| `sp-lists delete-item` | Delete a list item | `<site-id>` `<list-id>` `<item-id>` `--if-match` |
 | `sp-lists delete-column` | Delete a list column | `<site-id>` `<list-id>` `<column-id>` |
 
 ## Examples
@@ -41,7 +41,7 @@ a365 sp-lists items SITE_ID LIST_ID
 a365 sp-lists create SITE_ID "Bug Tracker"
 
 # Add columns to define the schema
-a365 sp-lists add-column SITE_ID LIST_ID "Priority" choice
+a365 sp-lists add-column SITE_ID LIST_ID "Priority" choice --column-settings '{"choices":["High","Medium","Low"]}'
 a365 sp-lists add-column SITE_ID LIST_ID "DueDate" dateTime
 a365 sp-lists add-column SITE_ID LIST_ID "Resolved" boolean
 

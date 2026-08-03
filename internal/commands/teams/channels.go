@@ -86,23 +86,25 @@ type ChannelsPostCmd struct {
 }
 
 func (c *ChannelsPostCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(teamsEndpoint(), "PostChannelMessage",
-			fmt.Sprintf("post message to channel %s in team %s", c.ChannelID, c.TeamID),
-			map[string]any{
-				"action":    "channels.post",
-				"teamId":    c.TeamID,
-				"channelId": c.ChannelID,
-				"content":   c.Message,
-			},
-		)
-	}
-
-	data, err := ctx.CallToolData(teamsEndpoint(), "PostChannelMessage", "post channel message", map[string]any{
+	args := map[string]any{
 		"teamId":    c.TeamID,
 		"channelId": c.ChannelID,
 		"content":   c.Message,
-	})
+	}
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(teamsEndpoint(), "SendMessageToChannel",
+			fmt.Sprintf("post message to channel %s in team %s", c.ChannelID, c.TeamID),
+			map[string]any{
+				"action":        "channels.post",
+				"teamId":        c.TeamID,
+				"channelId":     c.ChannelID,
+				"contentLength": len(c.Message),
+			},
+			args,
+		)
+	}
+
+	data, err := ctx.CallToolData(teamsEndpoint(), "SendMessageToChannel", "post channel message", args)
 	if err != nil {
 		return err
 	}
@@ -118,25 +120,27 @@ type ChannelsReplyCmd struct {
 }
 
 func (c *ChannelsReplyCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(teamsEndpoint(), "ReplyToChannelMessage",
-			fmt.Sprintf("reply to message %s in channel %s", c.MessageID, c.ChannelID),
-			map[string]any{
-				"action":    "channels.reply",
-				"teamId":    c.TeamID,
-				"channelId": c.ChannelID,
-				"messageId": c.MessageID,
-				"content":   c.Message,
-			},
-		)
-	}
-
-	data, err := ctx.CallToolData(teamsEndpoint(), "ReplyToChannelMessage", "reply to channel message", map[string]any{
+	args := map[string]any{
 		"teamId":    c.TeamID,
 		"channelId": c.ChannelID,
 		"messageId": c.MessageID,
 		"content":   c.Message,
-	})
+	}
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(teamsEndpoint(), "ReplyToChannelMessage",
+			fmt.Sprintf("reply to message %s in channel %s", c.MessageID, c.ChannelID),
+			map[string]any{
+				"action":        "channels.reply",
+				"teamId":        c.TeamID,
+				"channelId":     c.ChannelID,
+				"messageId":     c.MessageID,
+				"contentLength": len(c.Message),
+			},
+			args,
+		)
+	}
+
+	data, err := ctx.CallToolData(teamsEndpoint(), "ReplyToChannelMessage", "reply to channel message", args)
 	if err != nil {
 		return err
 	}
@@ -153,24 +157,24 @@ type ChannelsCreateCmd struct {
 }
 
 func (c *ChannelsCreateCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(teamsEndpoint(), "CreateChannel",
-			fmt.Sprintf("create channel %q in team %s", c.DisplayName, c.TeamID),
-			map[string]any{
-				"action":      "channels.create",
-				"teamId":      c.TeamID,
-				"displayName": c.DisplayName,
-				"description": c.Description,
-			},
-		)
-	}
-
 	args := map[string]any{
 		"teamId":      c.TeamID,
 		"displayName": c.DisplayName,
 	}
 	if c.Description != "" {
 		args["description"] = c.Description
+	}
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(teamsEndpoint(), "CreateChannel",
+			fmt.Sprintf("create channel %q in team %s", c.DisplayName, c.TeamID),
+			map[string]any{
+				"action":            "channels.create",
+				"teamId":            c.TeamID,
+				"displayName":       c.DisplayName,
+				"descriptionLength": len(c.Description),
+			},
+			args,
+		)
 	}
 
 	data, err := ctx.CallToolData(teamsEndpoint(), "CreateChannel", "create channel", args)
@@ -188,27 +192,29 @@ type ChannelsCreatePrivateCmd struct {
 }
 
 func (c *ChannelsCreatePrivateCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(teamsEndpoint(), "CreatePrivateChannel",
-			fmt.Sprintf("create private channel %q in team %s", c.DisplayName, c.TeamID),
-			map[string]any{
-				"action":      "channels.create-private",
-				"teamId":      c.TeamID,
-				"displayName": c.DisplayName,
-				"description": c.Description,
-			},
-		)
-	}
-
 	args := map[string]any{
-		"teamId":      c.TeamID,
-		"displayName": c.DisplayName,
+		"teamId":         c.TeamID,
+		"displayName":    c.DisplayName,
+		"membershipType": "private",
 	}
 	if c.Description != "" {
 		args["description"] = c.Description
 	}
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(teamsEndpoint(), "CreateChannel",
+			fmt.Sprintf("create private channel %q in team %s", c.DisplayName, c.TeamID),
+			map[string]any{
+				"action":            "channels.create-private",
+				"teamId":            c.TeamID,
+				"displayName":       c.DisplayName,
+				"membershipType":    "private",
+				"descriptionLength": len(c.Description),
+			},
+			args,
+		)
+	}
 
-	data, err := ctx.CallToolData(teamsEndpoint(), "CreatePrivateChannel", "create private channel", args)
+	data, err := ctx.CallToolData(teamsEndpoint(), "CreateChannel", "create private channel", args)
 	if err != nil {
 		return err
 	}
@@ -224,19 +230,6 @@ type ChannelsUpdateCmd struct {
 }
 
 func (c *ChannelsUpdateCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(teamsEndpoint(), "UpdateChannel",
-			fmt.Sprintf("update channel %s in team %s", c.ChannelID, c.TeamID),
-			map[string]any{
-				"action":      "channels.update",
-				"teamId":      c.TeamID,
-				"channelId":   c.ChannelID,
-				"displayName": c.DisplayName,
-				"description": c.Description,
-			},
-		)
-	}
-
 	args := map[string]any{
 		"teamId":    c.TeamID,
 		"channelId": c.ChannelID,
@@ -246,6 +239,19 @@ func (c *ChannelsUpdateCmd) Run(ctx *commands.Context) error {
 	}
 	if c.Description != "" {
 		args["description"] = c.Description
+	}
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(teamsEndpoint(), "UpdateChannel",
+			fmt.Sprintf("update channel %s in team %s", c.ChannelID, c.TeamID),
+			map[string]any{
+				"action":            "channels.update",
+				"teamId":            c.TeamID,
+				"channelId":         c.ChannelID,
+				"displayName":       c.DisplayName,
+				"descriptionLength": len(c.Description),
+			},
+			args,
+		)
 	}
 
 	data, err := ctx.CallToolData(teamsEndpoint(), "UpdateChannel", "update channel", args)
@@ -288,23 +294,25 @@ type ChannelsAddMemberCmd struct {
 }
 
 func (c *ChannelsAddMemberCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(teamsEndpoint(), "AddChannelMember",
-			fmt.Sprintf("add member %s to channel %s", c.UserID, c.ChannelID),
-			map[string]any{
-				"action":    "channels.add-member",
-				"teamId":    c.TeamID,
-				"channelId": c.ChannelID,
-				"userId":    c.UserID,
-			},
-		)
-	}
-
-	data, err := ctx.CallToolData(teamsEndpoint(), "AddChannelMember", "add channel member", map[string]any{
+	args := map[string]any{
 		"teamId":    c.TeamID,
 		"channelId": c.ChannelID,
 		"userId":    c.UserID,
-	})
+	}
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(teamsEndpoint(), "AddChannelMember",
+			fmt.Sprintf("add member to channel %s", c.ChannelID),
+			map[string]any{
+				"action":                 "channels.add-member",
+				"teamId":                 c.TeamID,
+				"channelId":              c.ChannelID,
+				"memberIdentifierLength": len(c.UserID),
+			},
+			args,
+		)
+	}
+
+	data, err := ctx.CallToolData(teamsEndpoint(), "AddChannelMember", "add channel member", args)
 	if err != nil {
 		return err
 	}
@@ -320,6 +328,12 @@ type ChannelsUpdateMemberCmd struct {
 }
 
 func (c *ChannelsUpdateMemberCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"teamId":       c.TeamID,
+		"channelId":    c.ChannelID,
+		"membershipId": c.MembershipID,
+		"role":         c.Role,
+	}
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(teamsEndpoint(), "UpdateChannelMember",
 			fmt.Sprintf("update member %s role to %s in channel %s", c.MembershipID, c.Role, c.ChannelID),
@@ -330,15 +344,11 @@ func (c *ChannelsUpdateMemberCmd) Run(ctx *commands.Context) error {
 				"membershipId": c.MembershipID,
 				"role":         c.Role,
 			},
+			args,
 		)
 	}
 
-	data, err := ctx.CallToolData(teamsEndpoint(), "UpdateChannelMember", "update channel member", map[string]any{
-		"teamId":       c.TeamID,
-		"channelId":    c.ChannelID,
-		"membershipId": c.MembershipID,
-		"role":         c.Role,
-	})
+	data, err := ctx.CallToolData(teamsEndpoint(), "UpdateChannelMember", "update channel member", args)
 	if err != nil {
 		return err
 	}

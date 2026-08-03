@@ -13,14 +13,24 @@ func TestAdminSetLicenseCmd_DryRun(t *testing.T) {
 		{
 			Name: "mcp_Admin365_LicenseMgmtTools",
 			InputSchema: map[string]any{
-				"type": "object",
+				"type":                 "object",
+				"additionalProperties": false,
 				"properties": map[string]any{
-					"action":         map[string]any{"type": "string"},
-					"userId":         map[string]any{"type": "string"},
-					"addLicenses":    map[string]any{"type": "array"},
+					"userId": map[string]any{"type": "string"},
+					"addLicenses": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type":                 "object",
+							"additionalProperties": false,
+							"properties": map[string]any{
+								"skuId": map[string]any{"type": "string"},
+							},
+							"required": []any{"skuId"},
+						},
+					},
 					"removeLicenses": map[string]any{"type": "array"},
 				},
-				"required": []any{"userId"},
+				"required": []any{"userId", "addLicenses", "removeLicenses"},
 			},
 		},
 	}
@@ -49,5 +59,41 @@ func TestAdminSetLicenseCmd_DryRun(t *testing.T) {
 	}
 	if val["valid"] != true {
 		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
+	}
+}
+
+func TestAdminSetLicenseCmd_DryRunUsesEmptyArraysForOmittedChanges(t *testing.T) {
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "mcp_Admin365_LicenseMgmtTools",
+			InputSchema: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties": map[string]any{
+					"userId": map[string]any{"type": "string"},
+					"addLicenses": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+						},
+					},
+					"removeLicenses": map[string]any{
+						"type":  "array",
+						"items": map[string]any{"type": "string"},
+					},
+				},
+				"required": []any{"userId", "addLicenses", "removeLicenses"},
+			},
+		},
+	}
+	ctx, _ := testutil.SetupTestServerWithSchemas(t, nil, schemas)
+	ctx.DryRun = true
+
+	cmd := &AdminSetLicenseCmd{
+		UserID:      "00000000-0000-0000-0000-000000000000",
+		AddLicenses: []string{"sku-001"},
+	}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
 	}
 }

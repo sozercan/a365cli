@@ -2,6 +2,7 @@ package admin365
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
@@ -38,19 +39,27 @@ type Admin365BulkAddCmd struct {
 }
 
 func (c *Admin365BulkAddCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"fileContent": c.FileContent,
+	}
+	lineCount := 0
+	if c.FileContent != "" {
+		lineCount = strings.Count(c.FileContent, "\n") + 1
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(admin365Endpoint(), "BulkAddUsers",
 			"bulk add users to tenant",
 			map[string]any{
-				"action":      "admin365.bulk-add",
-				"fileContent": c.FileContent,
+				"action":       "admin365.bulk-add",
+				"contentBytes": len(c.FileContent),
+				"lineCount":    lineCount,
 			},
+			args,
 		)
 	}
 
-	data, err := ctx.CallToolData(admin365Endpoint(), "BulkAddUsers", "bulk add users", map[string]any{
-		"fileContent": c.FileContent,
-	})
+	data, err := ctx.CallToolData(admin365Endpoint(), "BulkAddUsers", "bulk add users", args)
 	if err != nil {
 		return err
 	}
@@ -130,6 +139,10 @@ type Admin365SetAccessCmd struct {
 }
 
 func (c *Admin365SetAccessCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"accessLevel": c.AccessLevel,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateWhoCanAccessAgentsSettings",
 			fmt.Sprintf("update agent access to %q", c.AccessLevel),
@@ -137,12 +150,11 @@ func (c *Admin365SetAccessCmd) Run(ctx *commands.Context) error {
 				"action":      "admin365.set-access",
 				"accessLevel": c.AccessLevel,
 			},
+			args,
 		)
 	}
 
-	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateWhoCanAccessAgentsSettings", "update agent access", map[string]any{
-		"accessLevel": c.AccessLevel,
-	})
+	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateWhoCanAccessAgentsSettings", "update agent access", args)
 	if err != nil {
 		return err
 	}
@@ -157,6 +169,10 @@ type Admin365SetSharingCmd struct {
 }
 
 func (c *Admin365SetSharingCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"accessLevel": c.AccessLevel,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateWhoCanShareAgentsOrgWideSettings",
 			fmt.Sprintf("update agent sharing to %q", c.AccessLevel),
@@ -164,12 +180,11 @@ func (c *Admin365SetSharingCmd) Run(ctx *commands.Context) error {
 				"action":      "admin365.set-sharing",
 				"accessLevel": c.AccessLevel,
 			},
+			args,
 		)
 	}
 
-	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateWhoCanShareAgentsOrgWideSettings", "update agent sharing", map[string]any{
-		"accessLevel": c.AccessLevel,
-	})
+	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateWhoCanShareAgentsOrgWideSettings", "update agent sharing", args)
 	if err != nil {
 		return err
 	}
@@ -184,6 +199,10 @@ type Admin365SetMsAppsCmd struct {
 }
 
 func (c *Admin365SetMsAppsCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"allowed": c.Allowed,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateCanInstallMicrosoftAppsAndAgentsSettings",
 			fmt.Sprintf("update Microsoft apps install to %s", c.Allowed),
@@ -191,12 +210,11 @@ func (c *Admin365SetMsAppsCmd) Run(ctx *commands.Context) error {
 				"action":  "admin365.set-ms-apps",
 				"allowed": c.Allowed,
 			},
+			args,
 		)
 	}
 
-	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateCanInstallMicrosoftAppsAndAgentsSettings", "update Microsoft apps settings", map[string]any{
-		"allowed": c.Allowed,
-	})
+	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateCanInstallMicrosoftAppsAndAgentsSettings", "update Microsoft apps settings", args)
 	if err != nil {
 		return err
 	}
@@ -211,6 +229,10 @@ type Admin365SetThirdPartyCmd struct {
 }
 
 func (c *Admin365SetThirdPartyCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"allowed": c.Allowed,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateCanInstallThirdPartyAppsAndAgentsSettings",
 			fmt.Sprintf("update third-party apps install to %s", c.Allowed),
@@ -218,12 +240,11 @@ func (c *Admin365SetThirdPartyCmd) Run(ctx *commands.Context) error {
 				"action":  "admin365.set-third-party",
 				"allowed": c.Allowed,
 			},
+			args,
 		)
 	}
 
-	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateCanInstallThirdPartyAppsAndAgentsSettings", "update third-party apps settings", map[string]any{
-		"allowed": c.Allowed,
-	})
+	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateCanInstallThirdPartyAppsAndAgentsSettings", "update third-party apps settings", args)
 	if err != nil {
 		return err
 	}
@@ -238,6 +259,10 @@ type Admin365SetLobAppsCmd struct {
 }
 
 func (c *Admin365SetLobAppsCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"allowed": c.Allowed,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateCanInstallLOBAppsAndAgentsSettings",
 			fmt.Sprintf("update LOB apps install to %s", c.Allowed),
@@ -245,12 +270,11 @@ func (c *Admin365SetLobAppsCmd) Run(ctx *commands.Context) error {
 				"action":  "admin365.set-lob-apps",
 				"allowed": c.Allowed,
 			},
+			args,
 		)
 	}
 
-	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateCanInstallLOBAppsAndAgentsSettings", "update LOB apps settings", map[string]any{
-		"allowed": c.Allowed,
-	})
+	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateCanInstallLOBAppsAndAgentsSettings", "update LOB apps settings", args)
 	if err != nil {
 		return err
 	}
@@ -291,6 +315,10 @@ type Admin365SetCopilotCmd struct {
 }
 
 func (c *Admin365SetCopilotCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"isEnabled": c.IsEnabled,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(admin365Endpoint(), "UpdateCopilotAdminSettings",
 			fmt.Sprintf("update Copilot admin setting to isEnabled=%s", c.IsEnabled),
@@ -298,12 +326,11 @@ func (c *Admin365SetCopilotCmd) Run(ctx *commands.Context) error {
 				"action":    "admin365.set-copilot",
 				"isEnabled": c.IsEnabled,
 			},
+			args,
 		)
 	}
 
-	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateCopilotAdminSettings", "update Copilot admin settings", map[string]any{
-		"isEnabled": c.IsEnabled,
-	})
+	data, err := ctx.CallToolData(admin365Endpoint(), "UpdateCopilotAdminSettings", "update Copilot admin settings", args)
 	if err != nil {
 		return err
 	}

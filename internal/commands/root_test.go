@@ -256,8 +256,8 @@ func TestValidateDryRun_ValidArgs(t *testing.T) {
 		DryRun:        true,
 	}
 
-	err := ctx.ValidateDryRun(server.URL+"/", "SendMessage", "send message",
-		map[string]any{"chatId": "abc", "content": "hello"})
+	args := map[string]any{"chatId": "abc", "content": "hello"}
+	err := ctx.ValidateDryRun(server.URL+"/", "SendMessage", "send message", args, args)
 	if err != nil {
 		t.Fatalf("ValidateDryRun with valid args should not error: %v", err)
 	}
@@ -302,8 +302,8 @@ func TestValidateDryRun_InvalidArgs(t *testing.T) {
 		DryRun:        true,
 	}
 
-	err := ctx.ValidateDryRun(server.URL+"/", "SendMessage", "send message",
-		map[string]any{"chatId": "abc"}) // missing required "content"
+	args := map[string]any{"chatId": "abc"} // missing required "content"
+	err := ctx.ValidateDryRun(server.URL+"/", "SendMessage", "send message", args, args)
 	if err == nil {
 		t.Fatal("ValidateDryRun with invalid args should return error")
 	}
@@ -331,8 +331,8 @@ func TestValidateDryRun_ServerUnreachable(t *testing.T) {
 	}
 
 	// Use a URL that won't connect.
-	err := ctx.ValidateDryRun("http://127.0.0.1:1/", "SendMessage", "send message",
-		map[string]any{"chatId": "abc"})
+	args := map[string]any{"chatId": "abc"}
+	err := ctx.ValidateDryRun("http://127.0.0.1:1/", "SendMessage", "send message", args, args)
 	if err != nil {
 		t.Fatalf("ValidateDryRun should degrade gracefully, got error: %v", err)
 	}

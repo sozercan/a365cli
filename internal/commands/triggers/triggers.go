@@ -188,21 +188,22 @@ type TriggersDeleteCmd struct {
 }
 
 func (c *TriggersDeleteCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"id": c.ID}
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(triggersEndpoint(), "delete_trigger_definition", fmt.Sprintf("delete trigger %s", c.ID),
 			map[string]any{
 				"action": "triggers.delete",
 				"id":     c.ID,
-			})
+			},
+			args,
+		)
 	}
 
 	if err := ctx.Confirm(fmt.Sprintf("delete trigger %s", c.ID)); err != nil {
 		return err
 	}
 
-	data, err := ctx.CallToolData(triggersEndpoint(), "delete_trigger_definition", "delete trigger", map[string]any{
-		"id": c.ID,
-	})
+	data, err := ctx.CallToolData(triggersEndpoint(), "delete_trigger_definition", "delete trigger", args)
 	if err != nil {
 		return err
 	}
