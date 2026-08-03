@@ -154,3 +154,33 @@ func assertSPLDryRunValid(t *testing.T, result map[string]any) {
 		t.Errorf("expected valid=true, got %v; errors: %v", validation["valid"], validation["errors"])
 	}
 }
+
+func TestSPLAddColumnCmd_ChoiceRequiresValidChoices(t *testing.T) {
+	tests := []struct {
+		name     string
+		settings string
+		wantErr  string
+	}{
+		{name: "missing settings", wantErr: "non-empty choices array"},
+		{name: "empty choices", settings: `{"choices":[]}`, wantErr: "non-empty choices array"},
+		{name: "blank choice", settings: `{"choices":[""]}`, wantErr: "non-empty strings"},
+		{name: "duplicate choice", settings: `{"choices":["High","High"]}`, wantErr: "unique choices"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, _ := testutil.SetupTestServer(t, nil)
+			cmd := &SPLAddColumnCmd{
+				SiteID:         "site-001",
+				ListID:         "list-001",
+				Name:           "Priority",
+				ColumnType:     "choice",
+				ColumnSettings: tt.settings,
+			}
+			err := cmd.Run(ctx)
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("Run() error = %v, want substring %q", err, tt.wantErr)
+			}
+		})
+	}
+}

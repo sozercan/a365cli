@@ -3,6 +3,7 @@ package splists
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
@@ -200,6 +201,23 @@ func (c *SPLAddColumnCmd) Run(ctx *commands.Context) error {
 		}
 		if settings == nil {
 			return fmt.Errorf("column settings must be a JSON object")
+		}
+	}
+	if c.ColumnType == "choice" {
+		choices, ok := settings["choices"].([]any)
+		if !ok || len(choices) == 0 {
+			return fmt.Errorf("choice column settings must include a non-empty choices array")
+		}
+		seen := make(map[string]struct{}, len(choices))
+		for _, value := range choices {
+			choice, ok := value.(string)
+			if !ok || strings.TrimSpace(choice) == "" {
+				return fmt.Errorf("choice column settings must contain only non-empty strings")
+			}
+			if _, duplicate := seen[choice]; duplicate {
+				return fmt.Errorf("choice column settings must contain unique choices")
+			}
+			seen[choice] = struct{}{}
 		}
 	}
 
