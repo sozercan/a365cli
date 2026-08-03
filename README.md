@@ -45,10 +45,14 @@ brew tap sozercan/repo
 brew install a365
 ```
 
-The macOS Homebrew artifact is a CGO-enabled native build signed with a
-Developer ID Application certificate. It can persist refresh tokens in macOS
-Keychain. Homebrew on Linux installs the portable CGO-disabled artifact, which
-does not persist the OS-backed token cache between CLI processes.
+The macOS Homebrew artifact is a CGO-enabled native build with
+certificate-backed code signing. The release workflow accepts exactly one
+**Developer ID Application** or **Apple Development** identity and reuses the
+fixed `com.github.sozercan.a365` identifier so Keychain authorization remains
+stable across versions signed by the same identity. Apple Development signing
+does not provide Developer ID distribution trust or notarization. Homebrew on
+Linux installs the portable CGO-disabled artifact, which does not persist the
+OS-backed token cache between CLI processes.
 
 ### GitHub Releases
 
@@ -56,7 +60,7 @@ Pre-built binaries are available on the [Releases](https://github.com/sozercan/a
 
 | Platform | Release build | Persistent OS token cache |
 |----------|---------------|---------------------------|
-| macOS | Native, CGO enabled, certificate signed | Yes, through Keychain |
+| macOS | Native, CGO enabled, certificate-backed | Yes, through Keychain |
 | Linux | Portable, CGO disabled | No |
 | Windows | Portable, CGO disabled | No |
 

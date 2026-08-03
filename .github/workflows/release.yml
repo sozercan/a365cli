@@ -66,18 +66,36 @@ jobs:
           # shellcheck disable=SC2086 # security expects one argument per keychain path.
           security list-keychains -d user -s "$keychain_path" $existing_keychains
 
-          identity_hashes=$(security find-identity -v -p codesigning "$keychain_path" 2>/dev/null \
-            | awk '/"Developer ID Application:/ { print $2 }')
-          identity_count=$(printf '%s\n' "$identity_hashes" | sed '/^$/d' | wc -l | tr -d ' ')
-          if [ "$identity_count" -ne 1 ]; then
-            echo "::error::The signing archive must contain exactly one valid Developer ID Application identity; found $identity_count."
+          identity_output=$(security find-identity -v -p codesigning "$keychain_path" 2>/dev/null)
+          all_identity_count=$(printf '%s\n' "$identity_output" \
+            | awk '/^[[:space:]]*[0-9]+\)/ { count++ } END { print count + 0 }')
+          identity_records=$(printf '%s\n' "$identity_output" \
+            | awk '/"Developer ID Application:/ { print "developer-id " $2 }
+                   /"Apple Development:/ { print "apple-development " $2 }')
+          identity_count=$(printf '%s\n' "$identity_records" | sed '/^$/d' | wc -l | tr -d ' ')
+          if [ "$identity_count" -ne 1 ] || [ "$all_identity_count" -ne 1 ]; then
+            echo "::error::The signing archive must contain exactly one valid Apple Development or Developer ID Application identity and no other code-signing identities; found $identity_count supported among $all_identity_count total."
             exit 1
           fi
 
-          identity_hash=$(printf '%s\n' "$identity_hashes" | head -n 1)
+          identity_type=$(printf '%s\n' "$identity_records" | awk 'NR == 1 { print $1 }')
+          identity_hash=$(printf '%s\n' "$identity_records" | awk 'NR == 1 { print $2 }')
+          case "$identity_type" in
+            developer-id)
+              identity_label="Developer ID Application"
+              ;;
+            apple-development)
+              identity_label="Apple Development"
+              ;;
+            *)
+              echo "::error::Unsupported macOS signing identity type."
+              exit 1
+              ;;
+          esac
+
           echo "::add-mask::$identity_hash"
           echo "identity=$identity_hash" >> "$GITHUB_OUTPUT"
-          echo "Configured one Developer ID Application identity for certificate-backed signing."
+          echo "Configured one $identity_label identity for certificate-backed signing."
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
