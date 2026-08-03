@@ -43,10 +43,10 @@ func (c *ExcelCreateCmd) Run(ctx *commands.Context) error {
 		return ctx.ValidateDryRun(excelEndpoint(), "CreateWorkbook",
 			fmt.Sprintf("create Excel workbook %q", c.FileName),
 			map[string]any{
-				"action":   "excel.create",
-				"fileName": c.FileName,
-				"csvBytes": len(c.CSVContent),
-				"rowCount": contentLineCount(c.CSVContent),
+				"action":    "excel.create",
+				"fileName":  c.FileName,
+				"csvBytes":  len(c.CSVContent),
+				"lineCount": contentLineCount(c.CSVContent),
 			},
 			args,
 		)

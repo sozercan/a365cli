@@ -67,8 +67,8 @@ func TestExcelCreateCmd_DryRunUsesActualArgs(t *testing.T) {
 	if result["csvBytes"] != float64(len(csvContent)) {
 		t.Errorf("expected csvBytes=%d, got %v", len(csvContent), result["csvBytes"])
 	}
-	if result["rowCount"] != float64(2) {
-		t.Errorf("expected rowCount=2, got %v", result["rowCount"])
+	if result["lineCount"] != float64(2) {
+		t.Errorf("expected lineCount=2, got %v", result["lineCount"])
 	}
 }
 
