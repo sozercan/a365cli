@@ -66,40 +66,33 @@ type CalCreateCmd struct {
 }
 
 func (c *CalCreateCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		mcpArgs := map[string]any{
-			"subject":        c.Subject,
-			"startDateTime":  c.Start,
-			"endDateTime":    c.End,
-			"attendeeEmails": c.Attendees,
-		}
-		if c.Body != "" {
-			mcpArgs["body"] = c.Body
-		}
-		if c.IsOnline {
-			mcpArgs["isOnlineMeeting"] = true
-		}
-		return ctx.ValidateDryRun(calEndpoint(), "CreateEvent",
-			fmt.Sprintf("create event %q from %s to %s", c.Subject, c.Start, c.End),
-			map[string]any{
-				"action": "calendar.create", "subject": c.Subject,
-				"start": c.Start, "end": c.End, "attendees": c.Attendees,
-			},
-			mcpArgs,
-		)
-	}
-
+	attendeeEmails := append([]string{}, c.Attendees...)
 	args := map[string]any{
 		"subject":        c.Subject,
 		"startDateTime":  c.Start,
 		"endDateTime":    c.End,
-		"attendeeEmails": c.Attendees,
+		"attendeeEmails": attendeeEmails,
 	}
 	if c.Body != "" {
-		args["body"] = c.Body
+		args["bodyContent"] = c.Body
 	}
 	if c.IsOnline {
 		args["isOnlineMeeting"] = true
+	}
+
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(calEndpoint(), "CreateEvent",
+			fmt.Sprintf("create calendar event from %s to %s", c.Start, c.End),
+			map[string]any{
+				"action":        "calendar.create",
+				"start":         c.Start,
+				"end":           c.End,
+				"subjectBytes":  len(c.Subject),
+				"bodyBytes":     len(c.Body),
+				"attendeeCount": len(c.Attendees),
+			},
+			args,
+		)
 	}
 
 	data, err := ctx.CallToolData(calEndpoint(), "CreateEvent", "create event", args)
@@ -119,13 +112,6 @@ type CalUpdateCmd struct {
 }
 
 func (c *CalUpdateCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(calEndpoint(), "UpdateEvent",
-			fmt.Sprintf("update event %s", c.ID),
-			map[string]any{"action": "calendar.update", "eventId": c.ID},
-		)
-	}
-
 	args := map[string]any{"eventId": c.ID}
 	if c.Subject != "" {
 		args["subject"] = c.Subject
@@ -138,6 +124,14 @@ func (c *CalUpdateCmd) Run(ctx *commands.Context) error {
 	}
 	if c.Body != "" {
 		args["body"] = c.Body
+	}
+
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(calEndpoint(), "UpdateEvent",
+			fmt.Sprintf("update event %s", c.ID),
+			map[string]any{"action": "calendar.update", "eventId": c.ID},
+			args,
+		)
 	}
 
 	data, err := ctx.CallToolData(calEndpoint(), "UpdateEvent", "update event", args)
@@ -153,15 +147,17 @@ type CalDeleteCmd struct {
 }
 
 func (c *CalDeleteCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"eventId": c.ID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(calEndpoint(), "DeleteEventById", fmt.Sprintf("delete event %s", c.ID),
-			map[string]any{"action": "calendar.delete", "eventId": c.ID})
+			map[string]any{"action": "calendar.delete", "eventId": c.ID}, args)
 	}
 	if err := ctx.Confirm(fmt.Sprintf("delete event %s", c.ID)); err != nil {
 		return err
 	}
 
-	data, err := ctx.CallToolData(calEndpoint(), "DeleteEventById", "delete event", map[string]any{"eventId": c.ID})
+	data, err := ctx.CallToolData(calEndpoint(), "DeleteEventById", "delete event", args)
 	if err != nil {
 		return err
 	}
@@ -174,12 +170,14 @@ type CalAcceptCmd struct {
 }
 
 func (c *CalAcceptCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"eventId": c.ID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(calEndpoint(), "AcceptEvent", fmt.Sprintf("accept event %s", c.ID),
-			map[string]any{"action": "calendar.accept", "eventId": c.ID})
+			map[string]any{"action": "calendar.accept", "eventId": c.ID}, args)
 	}
 
-	data, err := ctx.CallToolData(calEndpoint(), "AcceptEvent", "accept", map[string]any{"eventId": c.ID})
+	data, err := ctx.CallToolData(calEndpoint(), "AcceptEvent", "accept", args)
 	if err != nil {
 		return err
 	}
@@ -192,12 +190,14 @@ type CalTentativeCmd struct {
 }
 
 func (c *CalTentativeCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"eventId": c.ID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(calEndpoint(), "TentativelyAcceptEvent", fmt.Sprintf("tentatively accept event %s", c.ID),
-			map[string]any{"action": "calendar.tentative", "eventId": c.ID})
+			map[string]any{"action": "calendar.tentative", "eventId": c.ID}, args)
 	}
 
-	data, err := ctx.CallToolData(calEndpoint(), "TentativelyAcceptEvent", "tentative accept", map[string]any{"eventId": c.ID})
+	data, err := ctx.CallToolData(calEndpoint(), "TentativelyAcceptEvent", "tentative accept", args)
 	if err != nil {
 		return err
 	}
@@ -210,12 +210,14 @@ type CalDeclineCmd struct {
 }
 
 func (c *CalDeclineCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"eventId": c.ID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(calEndpoint(), "DeclineEvent", fmt.Sprintf("decline event %s", c.ID),
-			map[string]any{"action": "calendar.decline", "eventId": c.ID})
+			map[string]any{"action": "calendar.decline", "eventId": c.ID}, args)
 	}
 
-	data, err := ctx.CallToolData(calEndpoint(), "DeclineEvent", "decline", map[string]any{"eventId": c.ID})
+	data, err := ctx.CallToolData(calEndpoint(), "DeclineEvent", "decline", args)
 	if err != nil {
 		return err
 	}
@@ -228,15 +230,17 @@ type CalCancelCmd struct {
 }
 
 func (c *CalCancelCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"eventId": c.ID}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(calEndpoint(), "CancelEvent", fmt.Sprintf("cancel event %s", c.ID),
-			map[string]any{"action": "calendar.cancel", "eventId": c.ID})
+			map[string]any{"action": "calendar.cancel", "eventId": c.ID}, args)
 	}
 	if err := ctx.Confirm(fmt.Sprintf("cancel event %s", c.ID)); err != nil {
 		return err
 	}
 
-	data, err := ctx.CallToolData(calEndpoint(), "CancelEvent", "cancel", map[string]any{"eventId": c.ID})
+	data, err := ctx.CallToolData(calEndpoint(), "CancelEvent", "cancel", args)
 	if err != nil {
 		return err
 	}
@@ -251,20 +255,21 @@ type CalForwardCmd struct {
 }
 
 func (c *CalForwardCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		mcpArgs := map[string]any{"eventId": c.ID, "recipientEmails": c.Recipients}
-		if c.Comment != "" {
-			mcpArgs["comment"] = c.Comment
-		}
-		return ctx.ValidateDryRun(calEndpoint(), "ForwardEvent", fmt.Sprintf("forward event %s to %v", c.ID, c.Recipients),
-			map[string]any{"action": "calendar.forward", "eventId": c.ID, "to": c.Recipients},
-			mcpArgs,
-		)
-	}
-
 	args := map[string]any{"eventId": c.ID, "recipientEmails": c.Recipients}
 	if c.Comment != "" {
 		args["comment"] = c.Comment
+	}
+
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(calEndpoint(), "ForwardEvent", fmt.Sprintf("forward event %s to %d recipient(s)", c.ID, len(c.Recipients)),
+			map[string]any{
+				"action":         "calendar.forward",
+				"eventId":        c.ID,
+				"recipientCount": len(c.Recipients),
+				"commentBytes":   len(c.Comment),
+			},
+			args,
+		)
 	}
 
 	data, err := ctx.CallToolData(calEndpoint(), "ForwardEvent", "forward", args)

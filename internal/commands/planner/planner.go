@@ -58,11 +58,13 @@ type PlansCreateCmd struct {
 }
 
 func (c *PlansCreateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{"title": c.Title}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(plannerEndpoint(), "CreatePlan", fmt.Sprintf("create plan %q", c.Title),
-			map[string]any{"action": "planner.create-plan", "title": c.Title})
+			map[string]any{"action": "planner.create-plan", "title": c.Title}, args)
 	}
-	data, err := ctx.CallToolData(plannerEndpoint(), "CreatePlan", "create plan", map[string]any{"title": c.Title})
+	data, err := ctx.CallToolData(plannerEndpoint(), "CreatePlan", "create plan", args)
 	if err != nil {
 		return err
 	}
@@ -75,15 +77,16 @@ type PlansUpdateCmd struct {
 }
 
 func (c *PlansUpdateCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(plannerEndpoint(), "UpdatePlan", fmt.Sprintf("update plan %s", c.ID),
-			map[string]any{"action": "planner.update-plan", "planId": c.ID})
-	}
-
 	args := map[string]any{"planId": c.ID}
 	if c.Title != "" {
 		args["title"] = c.Title
 	}
+
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(plannerEndpoint(), "UpdatePlan", fmt.Sprintf("update plan %s", c.ID),
+			map[string]any{"action": "planner.update-plan", "planId": c.ID}, args)
+	}
+
 	data, err := ctx.CallToolData(plannerEndpoint(), "UpdatePlan", "update plan", args)
 	if err != nil {
 		return err
@@ -131,13 +134,16 @@ type TasksCreateCmd struct {
 }
 
 func (c *TasksCreateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"planId": c.PlanID,
+		"title":  c.Title,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(plannerEndpoint(), "CreateTask", fmt.Sprintf("create task %q in plan %s", c.Title, c.PlanID),
-			map[string]any{"action": "planner.create-task", "planId": c.PlanID, "title": c.Title})
+			map[string]any{"action": "planner.create-task", "planId": c.PlanID, "title": c.Title}, args)
 	}
-	data, err := ctx.CallToolData(plannerEndpoint(), "CreateTask", "create task", map[string]any{
-		"planId": c.PlanID, "title": c.Title,
-	})
+	data, err := ctx.CallToolData(plannerEndpoint(), "CreateTask", "create task", args)
 	if err != nil {
 		return err
 	}
@@ -150,15 +156,16 @@ type TasksUpdateCmd struct {
 }
 
 func (c *TasksUpdateCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(plannerEndpoint(), "UpdateTask", fmt.Sprintf("update task %s", c.ID),
-			map[string]any{"action": "planner.update-task", "taskId": c.ID})
-	}
-
 	args := map[string]any{"taskId": c.ID}
 	if c.Title != "" {
 		args["title"] = c.Title
 	}
+
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(plannerEndpoint(), "UpdateTask", fmt.Sprintf("update task %s", c.ID),
+			map[string]any{"action": "planner.update-task", "taskId": c.ID}, args)
+	}
+
 	data, err := ctx.CallToolData(plannerEndpoint(), "UpdateTask", "update task", args)
 	if err != nil {
 		return err
@@ -205,13 +212,16 @@ type GoalsCreateCmd struct {
 }
 
 func (c *GoalsCreateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"planId": c.PlanID,
+		"title":  c.Title,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(plannerEndpoint(), "CreateGoal", fmt.Sprintf("create goal %q in plan %s", c.Title, c.PlanID),
-			map[string]any{"action": "planner.create-goal", "planId": c.PlanID, "title": c.Title})
+			map[string]any{"action": "planner.create-goal", "planId": c.PlanID, "title": c.Title}, args)
 	}
-	data, err := ctx.CallToolData(plannerEndpoint(), "CreateGoal", "create goal", map[string]any{
-		"planId": c.PlanID, "title": c.Title,
-	})
+	data, err := ctx.CallToolData(plannerEndpoint(), "CreateGoal", "create goal", args)
 	if err != nil {
 		return err
 	}
@@ -224,15 +234,16 @@ type GoalsUpdateCmd struct {
 }
 
 func (c *GoalsUpdateCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(plannerEndpoint(), "UpdateGoal", fmt.Sprintf("update goal %s", c.ID),
-			map[string]any{"action": "planner.update-goal", "goalId": c.ID})
-	}
-
 	args := map[string]any{"goalId": c.ID}
 	if c.Title != "" {
 		args["title"] = c.Title
 	}
+
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(plannerEndpoint(), "UpdateGoal", fmt.Sprintf("update goal %s", c.ID),
+			map[string]any{"action": "planner.update-goal", "goalId": c.ID}, args)
+	}
+
 	data, err := ctx.CallToolData(plannerEndpoint(), "UpdateGoal", "update goal", args)
 	if err != nil {
 		return err

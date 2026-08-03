@@ -40,7 +40,8 @@ func TestTasksCreateCmd_DryRun(t *testing.T) {
 		{
 			Name: "CreateTask",
 			InputSchema: map[string]any{
-				"type": "object",
+				"type":                 "object",
+				"additionalProperties": false,
 				"properties": map[string]any{
 					"planId": map[string]any{"type": "string"},
 					"title":  map[string]any{"type": "string"},
@@ -66,6 +67,45 @@ func TestTasksCreateCmd_DryRun(t *testing.T) {
 	}
 	if result["action"] != "planner.create-task" {
 		t.Errorf("expected action=planner.create-task, got %v", result["action"])
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok {
+		t.Fatal("expected validation object in dry-run output")
+	}
+	if val["valid"] != true {
+		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
+	}
+}
+
+func TestTasksUpdateCmd_DryRunValidatesActualArgs(t *testing.T) {
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "UpdateTask",
+			InputSchema: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties": map[string]any{
+					"taskId": map[string]any{"type": "string"},
+					"title":  map[string]any{"type": "string"},
+				},
+				"required": []any{"taskId"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
+	ctx.DryRun = true
+
+	cmd := &TasksUpdateCmd{ID: "task-001", Title: "Updated task title"}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
+	}
+	if result["action"] != "planner.update-task" {
+		t.Errorf("expected action=planner.update-task, got %v", result["action"])
 	}
 	val, ok := result["validation"].(map[string]any)
 	if !ok {

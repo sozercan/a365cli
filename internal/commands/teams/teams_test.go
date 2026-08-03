@@ -24,9 +24,19 @@ func setupTestServer(t *testing.T, toolResponses map[string]string) (*commands.C
 	return setupTestServerWithSchemas(t, toolResponses, nil)
 }
 
+type recordedToolCall struct {
+	Name      string
+	Arguments map[string]any
+}
+
 // setupTestServerWithSchemas creates a mock MCP server that also responds to
 // tools/list requests with the provided tool schemas.
 func setupTestServerWithSchemas(t *testing.T, toolResponses map[string]string, toolSchemas []mcp.ToolInfo) (*commands.Context, *bytes.Buffer, func()) {
+	t.Helper()
+	return setupTestServerWithRecorder(t, toolResponses, toolSchemas, nil)
+}
+
+func setupTestServerWithRecorder(t *testing.T, toolResponses map[string]string, toolSchemas []mcp.ToolInfo, calls chan<- recordedToolCall) (*commands.Context, *bytes.Buffer, func()) {
 	t.Helper()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -68,6 +78,9 @@ func setupTestServerWithSchemas(t *testing.T, toolResponses map[string]string, t
 				Arguments map[string]any `json:"arguments"`
 			}
 			json.Unmarshal(req.Params, &params) //nolint:errcheck
+			if calls != nil {
+				calls <- recordedToolCall{Name: params.Name, Arguments: params.Arguments}
+			}
 
 			respText, ok := toolResponses[params.Name]
 			if !ok {
@@ -189,11 +202,12 @@ func TestTeamsGetCmd_Run(t *testing.T) {
 
 func TestChatsSendCmd_Run(t *testing.T) {
 	ctx, buf, cleanup := setupTestServer(t, map[string]string{
-		"PostMessage": `{"id":"msg1","chatId":"chat1","content":"hello"}`,
+		"SendMessageToChat": `{"id":"msg1","chatId":"chat1","content":"hello"}`,
 	})
 	defer cleanup()
 
-	cmd := &ChatsSendCmd{ChatID: "chat1", Message: "hello"}
+	payload := "confidential-chat-payload"
+	cmd := &ChatsSendCmd{ChatID: "chat1", Message: payload}
 	if err := cmd.Run(ctx); err != nil {
 		t.Fatalf("Run() error: %v", err)
 	}
@@ -210,9 +224,10 @@ func TestChatsSendCmd_Run(t *testing.T) {
 func TestChatsSendCmd_DryRun(t *testing.T) {
 	schemas := []mcp.ToolInfo{
 		{
-			Name: "PostMessage",
+			Name: "SendMessageToChat",
 			InputSchema: map[string]any{
-				"type": "object",
+				"type":                 "object",
+				"additionalProperties": false,
 				"properties": map[string]any{
 					"chatId":  map[string]any{"type": "string"},
 					"content": map[string]any{"type": "string"},
@@ -225,7 +240,8 @@ func TestChatsSendCmd_DryRun(t *testing.T) {
 	defer cleanup()
 	ctx.DryRun = true
 
-	cmd := &ChatsSendCmd{ChatID: "chat1", Message: "hello"}
+	payload := "confidential-chat-payload"
+	cmd := &ChatsSendCmd{ChatID: "chat1", Message: payload}
 	if err := cmd.Run(ctx); err != nil {
 		t.Fatalf("Run() error: %v", err)
 	}
@@ -250,6 +266,12 @@ func TestChatsSendCmd_DryRun(t *testing.T) {
 	}
 	if val["valid"] != true {
 		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
+	}
+	if result["contentLength"] != float64(len(payload)) {
+		t.Errorf("expected contentLength=%d, got %v", len(payload), result["contentLength"])
+	}
+	if strings.Contains(buf.String(), payload) {
+		t.Fatal("dry-run output exposed the full chat message")
 	}
 }
 
@@ -406,9 +428,10 @@ func TestChatsListCmd_Run(t *testing.T) {
 func TestChannelsPostCmd_DryRun(t *testing.T) {
 	schemas := []mcp.ToolInfo{
 		{
-			Name: "PostChannelMessage",
+			Name: "SendMessageToChannel",
 			InputSchema: map[string]any{
-				"type": "object",
+				"type":                 "object",
+				"additionalProperties": false,
 				"properties": map[string]any{
 					"teamId":    map[string]any{"type": "string"},
 					"channelId": map[string]any{"type": "string"},
@@ -422,7 +445,8 @@ func TestChannelsPostCmd_DryRun(t *testing.T) {
 	defer cleanup()
 	ctx.DryRun = true
 
-	cmd := &ChannelsPostCmd{TeamID: "t1", ChannelID: "ch1", Message: "hello"}
+	payload := "confidential-channel-payload"
+	cmd := &ChannelsPostCmd{TeamID: "t1", ChannelID: "ch1", Message: payload}
 	if err := cmd.Run(ctx); err != nil {
 		t.Fatalf("Run() error: %v", err)
 	}
@@ -444,6 +468,12 @@ func TestChannelsPostCmd_DryRun(t *testing.T) {
 	if val["valid"] != true {
 		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
 	}
+	if result["contentLength"] != float64(len(payload)) {
+		t.Errorf("expected contentLength=%d, got %v", len(payload), result["contentLength"])
+	}
+	if strings.Contains(buf.String(), payload) {
+		t.Fatal("dry-run output exposed the full channel message")
+	}
 }
 
 func TestChatsDeleteCmd_DryRun(t *testing.T) {
@@ -451,7 +481,8 @@ func TestChatsDeleteCmd_DryRun(t *testing.T) {
 		{
 			Name: "DeleteChat",
 			InputSchema: map[string]any{
-				"type": "object",
+				"type":                 "object",
+				"additionalProperties": false,
 				"properties": map[string]any{
 					"chatId": map[string]any{"type": "string"},
 				},
@@ -484,6 +515,152 @@ func TestChatsDeleteCmd_DryRun(t *testing.T) {
 	}
 	if val["valid"] != true {
 		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
+	}
+}
+
+func TestChatsCreateCmd_DryRunRedactsTopicAndMembers(t *testing.T) {
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "CreateChat",
+			InputSchema: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties": map[string]any{
+					"chatType":     map[string]any{"type": "string"},
+					"members_upns": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+					"topic":        map[string]any{"type": "string"},
+				},
+				"required": []any{"chatType", "members_upns"},
+			},
+		},
+	}
+	ctx, buf, cleanup := setupTestServerWithSchemas(t, nil, schemas)
+	defer cleanup()
+	ctx.DryRun = true
+
+	topic := "confidential-chat-topic"
+	members := []string{"alice@contoso.com", "bob@contoso.com"}
+	cmd := &ChatsCreateCmd{Type: "group", Members: members, Topic: topic}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
+	}
+	val, ok := result["validation"].(map[string]any)
+	if !ok || val["valid"] != true {
+		t.Fatalf("expected valid dry-run validation, got %v", result["validation"])
+	}
+	if result["topicLength"] != float64(len(topic)) || result["memberCount"] != float64(len(members)) {
+		t.Errorf("unexpected safe metadata: %#v", result)
+	}
+	for _, payload := range append([]string{topic}, members...) {
+		if strings.Contains(buf.String(), payload) {
+			t.Fatalf("dry-run output exposed chat payload %q", payload)
+		}
+	}
+}
+
+func TestChatsUpdateCmd_DryRunRedactsTopic(t *testing.T) {
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "UpdateChat",
+			InputSchema: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties": map[string]any{
+					"chatId": map[string]any{"type": "string"},
+					"topic":  map[string]any{"type": "string"},
+				},
+				"required": []any{"chatId"},
+			},
+		},
+	}
+	ctx, buf, cleanup := setupTestServerWithSchemas(t, nil, schemas)
+	defer cleanup()
+	ctx.DryRun = true
+
+	topic := "confidential-updated-topic"
+	cmd := &ChatsUpdateCmd{ChatID: "19:example@thread.v2", Topic: topic}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
+	}
+	if result["topicLength"] != float64(len(topic)) {
+		t.Errorf("expected topicLength=%d, got %v", len(topic), result["topicLength"])
+	}
+	if strings.Contains(buf.String(), topic) {
+		t.Fatal("dry-run output exposed the full chat topic")
+	}
+}
+
+func TestChannelsCreatePrivateCmd_UsesLiveSchemaToolAndArgs(t *testing.T) {
+	calls := make(chan recordedToolCall, 1)
+	ctx, _, cleanup := setupTestServerWithRecorder(t, map[string]string{
+		"CreateChannel": `{"id":"channel-001"}`,
+	}, nil, calls)
+	defer cleanup()
+
+	cmd := &ChannelsCreatePrivateCmd{
+		TeamID:      "00000000-0000-0000-0000-000000000001",
+		DisplayName: "Private Project",
+		Description: "Restricted collaboration space",
+	}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	call := <-calls
+	if call.Name != "CreateChannel" {
+		t.Fatalf("expected CreateChannel, got %s", call.Name)
+	}
+	if call.Arguments["membershipType"] != "private" {
+		t.Errorf("expected membershipType=private, got %v", call.Arguments["membershipType"])
+	}
+	if call.Arguments["teamId"] != cmd.TeamID || call.Arguments["displayName"] != cmd.DisplayName {
+		t.Errorf("unexpected CreateChannel arguments: %#v", call.Arguments)
+	}
+}
+
+func TestChatsAddMemberCmd_PreservesRoleArguments(t *testing.T) {
+	calls := make(chan recordedToolCall, 1)
+	ctx, _, cleanup := setupTestServerWithRecorder(t, map[string]string{
+		"AddChatMember": `{"id":"membership-001"}`,
+	}, nil, calls)
+	defer cleanup()
+
+	cmd := &ChatsAddMemberCmd{
+		ChatID: "19:example@thread.v2",
+		UPN:    "alice@contoso.com",
+		Roles:  []string{"owner"},
+	}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	call := <-calls
+	if call.Name != "AddChatMember" {
+		t.Fatalf("expected AddChatMember, got %s", call.Name)
+	}
+	if call.Arguments["chatId"] != cmd.ChatID {
+		t.Errorf("chatId = %v, want %s", call.Arguments["chatId"], cmd.ChatID)
+	}
+	roles, ok := call.Arguments["roles"].([]any)
+	if !ok || len(roles) != 1 || roles[0] != "owner" {
+		t.Fatalf("roles = %#v, want [owner]", call.Arguments["roles"])
+	}
+	wantBinding := "https://graph.microsoft.com/v1.0/users('alice@contoso.com')"
+	if call.Arguments["userodata_bind"] != wantBinding {
+		t.Errorf("userodata_bind = %v, want %s", call.Arguments["userodata_bind"], wantBinding)
+	}
+	if call.Arguments["odata_type"] != "#microsoft.graph.aadUserConversationMember" {
+		t.Errorf("odata_type = %v", call.Arguments["odata_type"])
 	}
 }
 

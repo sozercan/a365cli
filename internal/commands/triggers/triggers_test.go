@@ -98,3 +98,35 @@ func TestTriggersCreateCmd_DryRun(t *testing.T) {
 		t.Errorf("expected valid=true, got %v; errors: %v", val["valid"], val["errors"])
 	}
 }
+
+func TestTriggersDeleteCmd_DryRun(t *testing.T) {
+	schemas := []mcp.ToolInfo{
+		{
+			Name: "delete_trigger_definition",
+			InputSchema: map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties": map[string]any{
+					"id": map[string]any{"type": "string"},
+				},
+				"required": []any{"id"},
+			},
+		},
+	}
+	ctx, buf := testutil.SetupTestServerWithSchemas(t, nil, schemas)
+	ctx.DryRun = true
+
+	cmd := &TriggersDeleteCmd{ID: "trigger-001"}
+	if err := cmd.Run(ctx); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
+	}
+	validation, ok := result["validation"].(map[string]any)
+	if !ok || validation["valid"] != true {
+		t.Fatalf("expected valid dry-run validation, got %v", result["validation"])
+	}
+}

@@ -26,21 +26,23 @@ type WordCreateCmd struct {
 }
 
 func (c *WordCreateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"fileName":      c.FileName,
+		"contentInHtml": c.ContentInHTML,
+	}
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(wordEndpoint(), "CreateDocument",
 			fmt.Sprintf("create Word document %q", c.FileName),
 			map[string]any{
 				"action":        "word.create",
 				"fileName":      c.FileName,
-				"contentInHtml": c.ContentInHTML,
+				"contentLength": len(c.ContentInHTML),
 			},
+			args,
 		)
 	}
 
-	data, err := ctx.CallToolData(wordEndpoint(), "CreateDocument", "create document", map[string]any{
-		"fileName":      c.FileName,
-		"contentInHtml": c.ContentInHTML,
-	})
+	data, err := ctx.CallToolData(wordEndpoint(), "CreateDocument", "create document", args)
 	if err != nil {
 		return err
 	}
@@ -70,23 +72,25 @@ type WordCommentCmd struct {
 }
 
 func (c *WordCommentCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"driveId":    c.DriveID,
+		"documentId": c.DocumentID,
+		"newComment": c.Text,
+	}
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(wordEndpoint(), "AddComment",
 			fmt.Sprintf("add comment to document %s", c.DocumentID),
 			map[string]any{
-				"action":     "word.comment",
-				"driveId":    c.DriveID,
-				"documentId": c.DocumentID,
-				"newComment": c.Text,
+				"action":        "word.comment",
+				"driveId":       c.DriveID,
+				"documentId":    c.DocumentID,
+				"commentLength": len(c.Text),
 			},
+			args,
 		)
 	}
 
-	data, err := ctx.CallToolData(wordEndpoint(), "AddComment", "add comment", map[string]any{
-		"driveId":    c.DriveID,
-		"documentId": c.DocumentID,
-		"newComment": c.Text,
-	})
+	data, err := ctx.CallToolData(wordEndpoint(), "AddComment", "add comment", args)
 	if err != nil {
 		return err
 	}
@@ -102,25 +106,27 @@ type WordReplyCmd struct {
 }
 
 func (c *WordReplyCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(wordEndpoint(), "ReplyToComment",
-			fmt.Sprintf("reply to comment %s on document %s", c.CommentID, c.DocumentID),
-			map[string]any{
-				"action":     "word.reply",
-				"commentId":  c.CommentID,
-				"driveId":    c.DriveID,
-				"documentId": c.DocumentID,
-				"newComment": c.Text,
-			},
-		)
-	}
-
-	data, err := ctx.CallToolData(wordEndpoint(), "ReplyToComment", "reply to comment", map[string]any{
+	args := map[string]any{
 		"commentId":  c.CommentID,
 		"driveId":    c.DriveID,
 		"documentId": c.DocumentID,
 		"newComment": c.Text,
-	})
+	}
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(wordEndpoint(), "ReplyToComment",
+			fmt.Sprintf("reply to comment %s on document %s", c.CommentID, c.DocumentID),
+			map[string]any{
+				"action":        "word.reply",
+				"commentId":     c.CommentID,
+				"driveId":       c.DriveID,
+				"documentId":    c.DocumentID,
+				"commentLength": len(c.Text),
+			},
+			args,
+		)
+	}
+
+	data, err := ctx.CallToolData(wordEndpoint(), "ReplyToComment", "reply to comment", args)
 	if err != nil {
 		return err
 	}

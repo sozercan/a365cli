@@ -61,25 +61,29 @@ type KnowledgeConfigureCmd struct {
 }
 
 func (c *KnowledgeConfigureCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(knowledgeEndpoint(), "configure_federated_knowledge",
-			fmt.Sprintf("configure knowledge source %q", c.DisplayName),
-			map[string]any{
-				"action":      "knowledge.configure",
-				"consumerId":  c.ConsumerID,
-				"sourceType":  c.SourceType,
-				"displayName": c.DisplayName,
-			},
-		)
-	}
-
-	data, err := ctx.CallToolData(knowledgeEndpoint(), "configure_federated_knowledge", "configure", map[string]any{
+	args := map[string]any{
 		"consumerId":      c.ConsumerID,
-		"knowledgeConfig": map[string]any{},
+		"knowledgeConfig": "{}",
 		"sourceType":      c.SourceType,
 		"displayName":     c.DisplayName,
 		"description":     c.Description,
-	})
+	}
+
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(knowledgeEndpoint(), "configure_federated_knowledge",
+			"configure knowledge source",
+			map[string]any{
+				"action":           "knowledge.configure",
+				"consumerId":       c.ConsumerID,
+				"sourceType":       c.SourceType,
+				"display_name_len": len(c.DisplayName),
+				"description_len":  len(c.Description),
+			},
+			args,
+		)
+	}
+
+	data, err := ctx.CallToolData(knowledgeEndpoint(), "configure_federated_knowledge", "configure", args)
 	if err != nil {
 		return err
 	}
@@ -93,6 +97,11 @@ type KnowledgeIngestCmd struct {
 }
 
 func (c *KnowledgeIngestCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"consumerId":            c.ConsumerID,
+		"searchConfigurationId": c.ConfigID,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(knowledgeEndpoint(), "ingest_federated_knowledge",
 			fmt.Sprintf("ingest knowledge config %s", c.ConfigID),
@@ -101,13 +110,11 @@ func (c *KnowledgeIngestCmd) Run(ctx *commands.Context) error {
 				"consumerId":            c.ConsumerID,
 				"searchConfigurationId": c.ConfigID,
 			},
+			args,
 		)
 	}
 
-	data, err := ctx.CallToolData(knowledgeEndpoint(), "ingest_federated_knowledge", "ingest", map[string]any{
-		"consumerId":            c.ConsumerID,
-		"searchConfigurationId": c.ConfigID,
-	})
+	data, err := ctx.CallToolData(knowledgeEndpoint(), "ingest_federated_knowledge", "ingest", args)
 	if err != nil {
 		return err
 	}
@@ -121,6 +128,11 @@ type KnowledgeDeleteCmd struct {
 }
 
 func (c *KnowledgeDeleteCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"consumerId":            c.ConsumerID,
+		"searchConfigurationId": c.ConfigID,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(knowledgeEndpoint(), "delete_federated_knowledge",
 			fmt.Sprintf("delete knowledge config %s", c.ConfigID),
@@ -129,6 +141,7 @@ func (c *KnowledgeDeleteCmd) Run(ctx *commands.Context) error {
 				"consumerId":            c.ConsumerID,
 				"searchConfigurationId": c.ConfigID,
 			},
+			args,
 		)
 	}
 
@@ -136,10 +149,7 @@ func (c *KnowledgeDeleteCmd) Run(ctx *commands.Context) error {
 		return err
 	}
 
-	data, err := ctx.CallToolData(knowledgeEndpoint(), "delete_federated_knowledge", "delete", map[string]any{
-		"searchConfigurationId": c.ConfigID,
-		"consumerId":            c.ConsumerID,
-	})
+	data, err := ctx.CallToolData(knowledgeEndpoint(), "delete_federated_knowledge", "delete", args)
 	if err != nil {
 		return err
 	}

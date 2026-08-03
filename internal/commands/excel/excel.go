@@ -2,6 +2,7 @@ package excel
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
@@ -19,6 +20,13 @@ func excelEndpoint() string {
 	return config.Endpoint("excel")
 }
 
+func contentLineCount(content string) int {
+	if content == "" {
+		return 0
+	}
+	return strings.Count(content, "\n") + 1
+}
+
 // ExcelCreateCmd creates a new Excel workbook.
 type ExcelCreateCmd struct {
 	FileName   string `arg:"" help:"Desired file name for the new workbook"`
@@ -26,21 +34,25 @@ type ExcelCreateCmd struct {
 }
 
 func (c *ExcelCreateCmd) Run(ctx *commands.Context) error {
+	args := map[string]any{
+		"fileName":   c.FileName,
+		"csvContent": c.CSVContent,
+	}
+
 	if ctx.DryRun {
 		return ctx.ValidateDryRun(excelEndpoint(), "CreateWorkbook",
 			fmt.Sprintf("create Excel workbook %q", c.FileName),
 			map[string]any{
-				"action":     "excel.create",
-				"fileName":   c.FileName,
-				"csvContent": c.CSVContent,
+				"action":    "excel.create",
+				"fileName":  c.FileName,
+				"csvBytes":  len(c.CSVContent),
+				"lineCount": contentLineCount(c.CSVContent),
 			},
+			args,
 		)
 	}
 
-	data, err := ctx.CallToolData(excelEndpoint(), "CreateWorkbook", "create workbook", map[string]any{
-		"fileName":   c.FileName,
-		"csvContent": c.CSVContent,
-	})
+	data, err := ctx.CallToolData(excelEndpoint(), "CreateWorkbook", "create workbook", args)
 	if err != nil {
 		return err
 	}
@@ -71,25 +83,29 @@ type ExcelCommentCmd struct {
 }
 
 func (c *ExcelCommentCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(excelEndpoint(), "CreateComment",
-			fmt.Sprintf("add comment to workbook %s at cell %s", c.DocumentID, c.CellAddress),
-			map[string]any{
-				"action":      "excel.comment",
-				"driveId":     c.DriveID,
-				"documentId":  c.DocumentID,
-				"cellAddress": c.CellAddress,
-				"content":     c.Text,
-			},
-		)
-	}
-
-	data, err := ctx.CallToolData(excelEndpoint(), "CreateComment", "add comment", map[string]any{
+	args := map[string]any{
 		"driveId":     c.DriveID,
 		"documentId":  c.DocumentID,
 		"cellAddress": c.CellAddress,
 		"content":     c.Text,
-	})
+	}
+
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(excelEndpoint(), "CreateComment",
+			fmt.Sprintf("add comment to workbook %s at cell %s", c.DocumentID, c.CellAddress),
+			map[string]any{
+				"action":       "excel.comment",
+				"driveId":      c.DriveID,
+				"documentId":   c.DocumentID,
+				"cellAddress":  c.CellAddress,
+				"contentBytes": len(c.Text),
+				"lineCount":    contentLineCount(c.Text),
+			},
+			args,
+		)
+	}
+
+	data, err := ctx.CallToolData(excelEndpoint(), "CreateComment", "add comment", args)
 	if err != nil {
 		return err
 	}
@@ -105,25 +121,29 @@ type ExcelReplyCmd struct {
 }
 
 func (c *ExcelReplyCmd) Run(ctx *commands.Context) error {
-	if ctx.DryRun {
-		return ctx.ValidateDryRun(excelEndpoint(), "ReplyToComment",
-			fmt.Sprintf("reply to comment %s on workbook %s", c.CommentID, c.DocumentID),
-			map[string]any{
-				"action":     "excel.reply",
-				"commentId":  c.CommentID,
-				"driveId":    c.DriveID,
-				"documentId": c.DocumentID,
-				"newComment": c.Text,
-			},
-		)
-	}
-
-	data, err := ctx.CallToolData(excelEndpoint(), "ReplyToComment", "reply to comment", map[string]any{
+	args := map[string]any{
 		"commentId":  c.CommentID,
 		"driveId":    c.DriveID,
 		"documentId": c.DocumentID,
 		"newComment": c.Text,
-	})
+	}
+
+	if ctx.DryRun {
+		return ctx.ValidateDryRun(excelEndpoint(), "ReplyToComment",
+			fmt.Sprintf("reply to comment %s on workbook %s", c.CommentID, c.DocumentID),
+			map[string]any{
+				"action":       "excel.reply",
+				"commentId":    c.CommentID,
+				"driveId":      c.DriveID,
+				"documentId":   c.DocumentID,
+				"contentBytes": len(c.Text),
+				"lineCount":    contentLineCount(c.Text),
+			},
+			args,
+		)
+	}
+
+	data, err := ctx.CallToolData(excelEndpoint(), "ReplyToComment", "reply to comment", args)
 	if err != nil {
 		return err
 	}
