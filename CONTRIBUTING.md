@@ -78,8 +78,10 @@ approval; subsequent canonical builds should retain both values.
 GoReleaser uses two disjoint build definitions:
 
 - macOS `amd64` and `arm64`: `CGO_ENABLED=1`, built on the macOS release runner,
-  signed with hardened runtime and a secure timestamp, and checked for both the
-  native CGO setting and a certificate-backed signature before packaging;
+  signed with hardened runtime and a secure timestamp using exactly one valid
+  **Developer ID Application** or **Apple Development** identity, and checked
+  for both the native CGO setting and a certificate-backed signature before
+  packaging;
 - Linux `amd64`/`arm64` and Windows `amd64`: `CGO_ENABLED=0`, preserving portable
   cross-builds from the macOS runner.
 
@@ -88,15 +90,19 @@ artifact on macOS and the portable artifact on Linux.
 
 The release workflow requires these GitHub Actions secrets:
 
-- `MACOS_CERTIFICATE`: base64-encoded PKCS#12 archive containing exactly one
-  valid **Developer ID Application** identity;
+- `MACOS_CERTIFICATE`: base64-encoded PKCS#12 archive containing the matching
+  private key and exactly one valid **Developer ID Application** or **Apple
+  Development** identity, with no additional code-signing identities;
 - `MACOS_CERTIFICATE_PWD`: password for that archive;
 - `MACOS_KEYCHAIN_PWD`: password for the temporary CI keychain.
 
-Missing, malformed, ambiguous, expired, or non-Developer-ID signing material
-fails the release. Release builds never fall back to Apple Development or ad-hoc
-signing. The workflow also runs `goreleaser check` before importing signing
-material, and removes the temporary keychain after the release step.
+Missing, malformed, ambiguous, expired, or unsupported signing material fails
+the release. Release builds never fall back to ad-hoc signing. Reusing the same
+certificate, private key, and fixed identifier preserves Keychain authorization
+across versions; Apple Development signing does not provide Developer ID
+distribution trust or notarization. The workflow also runs `goreleaser check`
+before importing signing material and removes the temporary keychain after the
+release step.
 
 ## Adding a New Service
 
