@@ -1,9 +1,12 @@
 package auth
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -87,5 +90,42 @@ func TestCacheAuthenticationRecordReturnsPersistenceError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "cache auth record") {
 		t.Fatalf("error = %q", err)
+	}
+}
+
+func TestDeviceCodeOptionsMirrorBrowserOptions(t *testing.T) {
+	record := &azidentity.AuthenticationRecord{Username: "alice@contoso.com", TenantID: "00000000-0000-0000-0000-000000000000"}
+	src := credentialOptions("00000000-0000-0000-0000-000000000001", "contoso.onmicrosoft.com", record, true)
+
+	var buf bytes.Buffer
+	opts := deviceCodeOptions(src, &buf)
+
+	if opts.ClientID != src.ClientID || opts.TenantID != src.TenantID {
+		t.Fatalf("client/tenant not mirrored: got %q/%q", opts.ClientID, opts.TenantID)
+	}
+	if opts.AuthenticationRecord != src.AuthenticationRecord {
+		t.Fatalf("authentication record not mirrored")
+	}
+	if !opts.DisableAutomaticAuthentication {
+		t.Fatalf("DisableAutomaticAuthentication not mirrored")
+	}
+	if opts.UserPrompt == nil {
+		t.Fatal("UserPrompt not set")
+	}
+	if err := opts.UserPrompt(context.Background(), azidentity.DeviceCodeMessage{Message: "enter code ABC123"}); err != nil {
+		t.Fatalf("UserPrompt() error = %v", err)
+	}
+	if got := buf.String(); got != "enter code ABC123\n" {
+		t.Fatalf("UserPrompt wrote %q", got)
+	}
+}
+
+func TestBrowserAvailableWithoutLaunchers(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("launcher detection only applies on linux")
+	}
+	t.Setenv("PATH", t.TempDir())
+	if BrowserAvailable() {
+		t.Fatal("BrowserAvailable() = true with no launchers on PATH")
 	}
 }

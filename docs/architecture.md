@@ -88,7 +88,7 @@ Browser ──PKCE──► Entra ID (login.microsoftonline.com)
                   └── Account-selection metadata in ~/.a365/auth-record.json
 ```
 
-- **Flow**: Interactive browser + PKCE (passes org Conditional Access on managed devices)
+- **Flow**: Interactive browser + PKCE (passes org Conditional Access on managed devices); `auth login --no-browser` prints the sign-in URL for a browser elsewhere and waits on a fixed localhost redirect port (used automatically on Linux when no browser launcher exists); `--device-code` for tenants that allow it
 - **Token cache**: supported native builds persist MSAL tokens in the OS credential store; portable builds keep tokens in memory only
 - **Auth record**: `~/.a365/auth-record.json` stores non-token account metadata used to select the cached account
 - **Scope**: `ea9ffc3e-8a23-4a7d-836d-234d7c7565c1/.default` — requests all granted agent365 scopes at once

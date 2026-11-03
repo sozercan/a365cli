@@ -10,7 +10,7 @@ import (
 )
 
 // applyTokenCache enables persistent token cache backed by the OS credential store.
-func applyTokenCache(opts *azidentity.InteractiveBrowserCredentialOptions) (bool, error) {
+func applyTokenCache(dst *azidentity.Cache) (bool, error) {
 	if persistentTokenCacheDisabled() {
 		return false, nil
 	}
@@ -18,7 +18,7 @@ func applyTokenCache(opts *azidentity.InteractiveBrowserCredentialOptions) (bool
 	if err != nil {
 		return false, err
 	}
-	opts.Cache = c
+	*dst = c
 	return true, nil
 }
 

@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
+	"runtime"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -12,9 +15,16 @@ import (
 	"github.com/sozercan/a365cli/internal/config"
 )
 
+// interactiveCredential is the subset of azidentity user credentials used here.
+// Both InteractiveBrowserCredential and DeviceCodeCredential satisfy it.
+type interactiveCredential interface {
+	GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error)
+	Authenticate(ctx context.Context, opts *policy.TokenRequestOptions) (azidentity.AuthenticationRecord, error)
+}
+
 // Credential wraps the Azure Identity credential for agent365 auth.
 type Credential struct {
-	cred  *azidentity.InteractiveBrowserCredential
+	cred  interactiveCredential
 	scope string
 }
 
@@ -22,6 +32,30 @@ type Credential struct {
 type CredentialOptions struct {
 	DisableAutomaticAuthentication           bool
 	AllowAutomaticAuthenticationWithoutCache bool
+
+	// DeviceCode selects the device code flow instead of opening a browser.
+	// Useful on headless machines (SSH sessions, containers, remote VMs).
+	DeviceCode bool
+	// DeviceCodePrompt receives the device code sign-in instructions.
+	// Defaults to os.Stderr.
+	DeviceCodePrompt io.Writer
+	// RedirectPort fixes the local port of the browser flow's
+	// http://localhost redirect listener (0 picks a random free port).
+	RedirectPort int
+}
+
+// BrowserAvailable reports whether a browser launcher is likely available.
+// On Linux this mirrors the launchers the underlying MSAL library tries.
+func BrowserAvailable() bool {
+	if runtime.GOOS != "linux" {
+		return true
+	}
+	for _, name := range []string{"xdg-open", "x-www-browser", "www-browser"} {
+		if _, err := exec.LookPath(name); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // NewCredential creates a new InteractiveBrowserCredential with PKCE.
@@ -41,10 +75,13 @@ func NewCredentialWithOptions(clientID, tenantID string, credentialOpts Credenti
 	}
 
 	opts := credentialOptions(clientID, tenantID, record, credentialOpts.DisableAutomaticAuthentication)
+	if credentialOpts.RedirectPort > 0 {
+		opts.RedirectURL = fmt.Sprintf("http://localhost:%d", credentialOpts.RedirectPort)
+	}
 
 	// Enable persistent token cache so refresh tokens survive between CLI
 	// invocations when the platform credential store is available.
-	cacheApplied, err := applyTokenCache(opts)
+	cacheApplied, err := applyTokenCache(&opts.Cache)
 	if policyErr := configureTokenCacheFallback(opts, cacheApplied, err, credentialOpts.AllowAutomaticAuthenticationWithoutCache); policyErr != nil {
 		return nil, fmt.Errorf("initialize persistent token cache: %w", policyErr)
 	}
@@ -52,7 +89,12 @@ func NewCredentialWithOptions(clientID, tenantID string, credentialOpts Credenti
 		fmt.Fprintf(os.Stderr, "Warning: persistent token cache unavailable; using interactive in-memory authentication: %v\n", err)
 	}
 
-	cred, err := azidentity.NewInteractiveBrowserCredential(opts)
+	var cred interactiveCredential
+	if credentialOpts.DeviceCode {
+		cred, err = azidentity.NewDeviceCodeCredential(deviceCodeOptions(opts, credentialOpts.DeviceCodePrompt))
+	} else {
+		cred, err = azidentity.NewInteractiveBrowserCredential(opts)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("create credential: %w", err)
 	}
@@ -89,6 +131,26 @@ func credentialOptions(clientID, tenantID string, record *azidentity.Authenticat
 	}
 
 	return opts
+}
+
+// deviceCodeOptions mirrors the browser credential options for the device code
+// flow so both share the same client, tenant, account record, and token cache.
+func deviceCodeOptions(src *azidentity.InteractiveBrowserCredentialOptions, prompt io.Writer) *azidentity.DeviceCodeCredentialOptions {
+	if prompt == nil {
+		prompt = os.Stderr
+	}
+	return &azidentity.DeviceCodeCredentialOptions{
+		ClientOptions:                  src.ClientOptions,
+		AuthenticationRecord:           src.AuthenticationRecord,
+		Cache:                          src.Cache,
+		ClientID:                       src.ClientID,
+		DisableAutomaticAuthentication: src.DisableAutomaticAuthentication,
+		TenantID:                       src.TenantID,
+		UserPrompt: func(_ context.Context, msg azidentity.DeviceCodeMessage) error {
+			_, err := fmt.Fprintln(prompt, msg.Message)
+			return err
+		},
+	}
 }
 
 // TokenProvider returns a function that provides bearer tokens for MCP requests.
