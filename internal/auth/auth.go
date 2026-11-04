@@ -24,8 +24,20 @@ type interactiveCredential interface {
 
 // Credential wraps the Azure Identity credential for agent365 auth.
 type Credential struct {
-	cred  interactiveCredential
-	scope string
+	cred       interactiveCredential
+	scope      string
+	persistent bool
+}
+
+// ErrHeadlessWithoutPersistentCache reports that a login can't be reused by
+// later processes because there is no durable token cache, and no local
+// browser is available to sign in again.
+var ErrHeadlessWithoutPersistentCache = errors.New("this a365 build has no persistent token cache, so a login on a machine without a browser can't be reused by later commands — install a CGO-enabled build with 'make install' (see README › Authentication)")
+
+// PersistentCache reports whether tokens acquired by this credential are
+// stored in a durable cache that later CLI processes can use silently.
+func (c *Credential) PersistentCache() bool {
+	return c.persistent
 }
 
 // CredentialOptions controls interactive fallback behavior.
@@ -82,6 +94,7 @@ func NewCredentialWithOptions(clientID, tenantID string, credentialOpts Credenti
 	// Enable persistent token cache so refresh tokens survive between CLI
 	// invocations when the platform credential store is available.
 	cacheApplied, err := applyTokenCache(&opts.Cache)
+	persistent := cacheApplied && err == nil
 	if policyErr := configureTokenCacheFallback(opts, cacheApplied, err, credentialOpts.AllowAutomaticAuthenticationWithoutCache); policyErr != nil {
 		return nil, fmt.Errorf("initialize persistent token cache: %w", policyErr)
 	}
@@ -100,8 +113,9 @@ func NewCredentialWithOptions(clientID, tenantID string, credentialOpts Credenti
 	}
 
 	return &Credential{
-		cred:  cred,
-		scope: config.DefaultScope,
+		cred:       cred,
+		scope:      config.DefaultScope,
+		persistent: persistent,
 	}, nil
 }
 

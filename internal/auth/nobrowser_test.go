@@ -11,6 +11,17 @@ import (
 )
 
 func TestInstallBrowserShimCapturesURL(t *testing.T) {
+	testInstallBrowserShimCapturesURL(t)
+}
+
+// The shim must not depend on the caller's PATH to find its helpers.
+func TestInstallBrowserShimCapturesURLWithEmptyPath(t *testing.T) {
+	t.Setenv("PATH", "")
+	testInstallBrowserShimCapturesURL(t)
+}
+
+func testInstallBrowserShimCapturesURL(t *testing.T) {
+	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("browser shim is not supported on windows")
 	}

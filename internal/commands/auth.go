@@ -63,6 +63,10 @@ func (c *AuthLoginCmd) Run(ctx *Context) error {
 	if err != nil {
 		return fmt.Errorf("create credential: %w", err)
 	}
+	// A headless login is only useful if later commands can reuse its tokens.
+	if (noBrowser || c.DeviceCode) && !cred.PersistentCache() {
+		return auth.ErrHeadlessWithoutPersistentCache
+	}
 
 	// Cancel cleanly on Ctrl+C so temporary login state is cleaned up.
 	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt)

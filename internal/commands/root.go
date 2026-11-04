@@ -80,6 +80,12 @@ func (c *Context) EnsureAuth() error {
 		return fmt.Errorf("authentication required — run 'a365 auth login' first: %w", err)
 	}
 
+	// Without a durable cache, every process must sign in interactively; with
+	// no browser launcher that can only fail with an obscure exec error.
+	if !cred.PersistentCache() && !auth.BrowserAvailable() {
+		return auth.ErrHeadlessWithoutPersistentCache
+	}
+
 	c.TokenProvider = cred.TokenProvider()
 	c.UserUPN = auth.GetCachedUsername()
 	return nil

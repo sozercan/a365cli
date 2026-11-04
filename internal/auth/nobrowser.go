@@ -68,7 +68,9 @@ func installBrowserShim() (string, func(), error) {
 
 	target := filepath.Join(dir, capturedURLFile)
 	// Write to a temp file then rename so readers never see a partial URL.
-	script := fmt.Sprintf("#!/bin/sh\nprintf '%%s' \"$1\" > '%[1]s.tmp' && mv '%[1]s.tmp' '%[1]s'\n", target)
+	// printf is a shell builtin; "command -p" resolves mv from the standard
+	// utility path so the shim works even when the caller's PATH is empty.
+	script := fmt.Sprintf("#!/bin/sh\nprintf '%%s' \"$1\" > '%[1]s.tmp' && command -p mv '%[1]s.tmp' '%[1]s'\n", target)
 	for _, name := range browserLaunchers {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(script), 0o700); err != nil { //nolint:gosec // executable shim in a private temp dir
 			cleanupDir()
