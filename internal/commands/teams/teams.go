@@ -1,6 +1,8 @@
 package teams
 
 import (
+	"fmt"
+
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
 	"github.com/sozercan/a365cli/internal/output"
@@ -27,19 +29,20 @@ func teamsEndpoint() string {
 
 // TeamsListCmd lists joined teams.
 type TeamsListCmd struct {
-	UserID string `help:"User ID (GUID) to list teams for. Defaults to signed-in user." optional:""`
+	// UserID is kept (hidden) only to reject it with a clear message: the
+	// ListTeams tool takes no arguments and always lists the signed-in user's
+	// teams, so the server fails on any userId argument.
+	UserID string `help:"Unsupported: teams can only be listed for the signed-in user." hidden:"" optional:""`
 	Max    int    `help:"Maximum number of results" default:"100"`
 }
 
 func (c *TeamsListCmd) Run(ctx *commands.Context) error {
-	args := map[string]any{}
 	if c.UserID != "" {
-		args["userId"] = c.UserID
-	} else if ctx.UserUPN != "" {
-		args["userId"] = ctx.UserUPN
+		return fmt.Errorf("--user-id is no longer supported: 'teams list' only lists teams for the signed-in user")
 	}
 
-	data, err := ctx.CallToolData(teamsEndpoint(), "ListTeams", "list teams", args)
+	// ListTeams takes no arguments.
+	data, err := ctx.CallToolData(teamsEndpoint(), "ListTeams", "list teams", map[string]any{})
 	if err != nil {
 		return err
 	}

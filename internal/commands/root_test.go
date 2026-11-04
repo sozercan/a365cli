@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -127,6 +128,61 @@ func TestCallToolData_ToolCallErrorIncludesAction(t *testing.T) {
 	}
 	if got := err.Error(); !strings.Contains(got, "search web: HTTP 500") {
 		t.Fatalf("error = %q, want action and HTTP status", got)
+	}
+}
+
+func TestCallToolData_ToolFailureReturnsError(t *testing.T) {
+	tests := []struct {
+		name    string
+		result  map[string]any
+		wantErr string
+	}{
+		{
+			name: "error executing tool text",
+			result: map[string]any{
+				"content": []map[string]any{
+					{"type": "text", "text": "Error: Error executing tool: Unknown argument: 'userId' for tool 'ListTeams'.\r\nCorrelationId: 00000000-0000-0000-0000-000000000000"},
+					{"type": "text", "text": "CorrelationId: 00000000-0000-0000-0000-000000000000"},
+				},
+			},
+			wantErr: "list teams: Error executing tool: Unknown argument: 'userId' for tool 'ListTeams'.\nCorrelationId: 00000000-0000-0000-0000-000000000000",
+		},
+		{
+			name: "isError flag",
+			result: map[string]any{
+				"isError": true,
+				"content": []map[string]any{
+					{"type": "text", "text": "Team not found."},
+				},
+			},
+			wantErr: "list teams: Team not found.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := setupMockMCPCallServer(t, func(w http.ResponseWriter, reqID int, _ toolCallParams) {
+				writeMCPSSE(t, w, reqID, map[string]any{"result": tt.result})
+			})
+
+			ctx := &Context{
+				Ctx:           context.Background(),
+				TokenProvider: func(ctx context.Context) (string, error) { return "test-token", nil },
+				Output:        &output.Formatter{Format: output.FormatJSON},
+			}
+
+			data, err := ctx.CallToolData(server.URL+"/", "ListTeams", "list teams", nil)
+			if err == nil {
+				t.Fatalf("CallToolData() expected error, got data %v", data)
+			}
+			if got := err.Error(); got != tt.wantErr {
+				t.Fatalf("error = %q, want %q", got, tt.wantErr)
+			}
+			var toolErr *mcp.ToolError
+			if !errors.As(err, &toolErr) {
+				t.Fatalf("expected *mcp.ToolError in chain, got %T", err)
+			}
+		})
 	}
 }
 

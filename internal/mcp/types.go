@@ -30,6 +30,8 @@ func (e *RPCError) Error() string {
 // Result is the MCP result envelope.
 type Result struct {
 	Content []Content `json:"content,omitempty"`
+	// IsError is set by tools/call responses when the tool itself failed.
+	IsError bool `json:"isError,omitempty"`
 	// For tools/list responses
 	Tools []ToolInfo `json:"tools,omitempty"`
 	// For initialize responses

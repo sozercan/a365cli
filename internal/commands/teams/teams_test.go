@@ -38,6 +38,31 @@ func setupTestServerWithSchemas(t *testing.T, toolResponses map[string]string, t
 
 func setupTestServerWithRecorder(t *testing.T, toolResponses map[string]string, toolSchemas []mcp.ToolInfo, calls chan<- recordedToolCall) (*commands.Context, *bytes.Buffer, func()) {
 	t.Helper()
+	return setupMockServer(t, mockServerConfig{toolResponses: toolResponses, toolSchemas: toolSchemas, calls: calls})
+}
+
+// setupStrictTestServer creates a mock MCP server that, like the real Teams
+// server, rejects tools/call arguments a tool does not declare. toolParams
+// maps tool names to their accepted argument names; an empty slice means the
+// tool takes no arguments.
+func setupStrictTestServer(t *testing.T, toolResponses map[string]string, toolParams map[string][]string) (*commands.Context, *bytes.Buffer, func()) {
+	t.Helper()
+	return setupMockServer(t, mockServerConfig{toolResponses: toolResponses, toolParams: toolParams})
+}
+
+type mockServerConfig struct {
+	toolResponses map[string]string
+	toolSchemas   []mcp.ToolInfo
+	calls         chan<- recordedToolCall
+	// toolParams, when set for a tool, lists the only argument names the
+	// mock accepts for it. Unexpected arguments fail the test and get the
+	// real server's "Error executing tool" response.
+	toolParams map[string][]string
+}
+
+func setupMockServer(t *testing.T, cfg mockServerConfig) (*commands.Context, *bytes.Buffer, func()) {
+	t.Helper()
+	toolResponses, toolSchemas, calls := cfg.toolResponses, cfg.toolSchemas, cfg.calls
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
@@ -85,6 +110,15 @@ func setupTestServerWithRecorder(t *testing.T, toolResponses map[string]string, 
 			respText, ok := toolResponses[params.Name]
 			if !ok {
 				respText = `{"message":"ok"}`
+			}
+			if allowed, strict := cfg.toolParams[params.Name]; strict {
+				for arg := range params.Arguments {
+					if !slices.Contains(allowed, arg) {
+						t.Errorf("unexpected argument %q for tool %q (accepted: %v)", arg, params.Name, allowed)
+						respText = fmt.Sprintf("Error: Error executing tool: Unknown argument: '%s' for tool '%s'.\r\nCorrelationId: 00000000-0000-0000-0000-000000000000", arg, params.Name)
+						break
+					}
+				}
 			}
 			fmt.Fprintf(w, "event: message\ndata: %s\n\n",
 				mustJSON(map[string]any{
@@ -149,10 +183,14 @@ func mustJSON(v any) string {
 
 // --- Tests ---
 
+// listTeamsParams mirrors the live ListTeams schema, which declares no
+// arguments (verify with `a365 api tools teams`).
+var listTeamsParams = map[string][]string{"ListTeams": {}}
+
 func TestTeamsListCmd_Run(t *testing.T) {
-	ctx, buf, cleanup := setupTestServer(t, map[string]string{
+	ctx, buf, cleanup := setupStrictTestServer(t, map[string]string{
 		"ListTeams": `{"teams":[{"id":"t1","displayName":"Team A"},{"id":"t2","displayName":"Team B"}]}`,
-	})
+	}, listTeamsParams)
 	defer cleanup()
 
 	cmd := &TeamsListCmd{Max: 100}
@@ -321,9 +359,9 @@ func TestTeamsListCmd_Max(t *testing.T) {
 		`{"id":"t5","displayName":"Team 5"}` +
 		`]}`
 
-	ctx, buf, cleanup := setupTestServer(t, map[string]string{
+	ctx, buf, cleanup := setupStrictTestServer(t, map[string]string{
 		"ListTeams": teamsJSON,
-	})
+	}, listTeamsParams)
 	defer cleanup()
 
 	cmd := &TeamsListCmd{Max: 2}
@@ -343,6 +381,39 @@ func TestTeamsListCmd_Max(t *testing.T) {
 	first := teams[0].(map[string]any)
 	if first["id"] != "t1" {
 		t.Errorf("expected first team id=t1, got %v", first["id"])
+	}
+}
+
+func TestTeamsListCmd_RejectsUserID(t *testing.T) {
+	// The strict server fails the test if userId is ever sent.
+	ctx, _, cleanup := setupStrictTestServer(t, nil, listTeamsParams)
+	defer cleanup()
+
+	cmd := &TeamsListCmd{UserID: "00000000-0000-0000-0000-000000000000", Max: 100}
+	err := cmd.Run(ctx)
+	if err == nil {
+		t.Fatal("expected error for --user-id")
+	}
+	if !strings.Contains(err.Error(), "--user-id is no longer supported") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestTeamsListCmd_ToolErrorFailsCommand(t *testing.T) {
+	ctx, buf, cleanup := setupTestServer(t, map[string]string{
+		"ListTeams": "Error: Error executing tool: upstream unavailable.\r\nCorrelationId: 00000000-0000-0000-0000-000000000000\nCorrelationId: 00000000-0000-0000-0000-000000000000",
+	})
+	defer cleanup()
+
+	err := (&TeamsListCmd{Max: 100}).Run(ctx)
+	if err == nil {
+		t.Fatalf("expected tool error to fail the command, got output %q", buf.String())
+	}
+	if !strings.Contains(err.Error(), "list teams: Error executing tool: upstream unavailable.") {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("expected no output on tool error, got %q", buf.String())
 	}
 }
 
