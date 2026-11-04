@@ -8,7 +8,7 @@ Manage Microsoft Teams — teams, channels, chats, and message search from the c
 
 | Command | Description | Key Arguments |
 |---------|-------------|---------------|
-| `teams list` | List joined teams | `--user-id` (optional) `--max` |
+| `teams list` | List teams the signed-in user has joined | `--max` |
 | `teams get` | Get a team by ID | `<team-id>` |
 
 ### Channels

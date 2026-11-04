@@ -12,6 +12,7 @@ import (
 
 	"github.com/sozercan/a365cli/internal/commands"
 	"github.com/sozercan/a365cli/internal/config"
+	"github.com/sozercan/a365cli/internal/mcp"
 	"github.com/sozercan/a365cli/internal/output"
 )
 
@@ -140,11 +141,15 @@ func callCopilot(ctx *commands.Context, message, conversationID, agentSelector s
 
 	for attempt := 0; ; attempt++ {
 		data, err := ctx.CallToolData(copilotEndpoint(), copilotChatTool, "copilot chat", args)
-		if err != nil {
+		svcErr := copilotServiceErrorFromToolError(err)
+		if err != nil && svcErr == nil {
 			return nil, "", err
 		}
+		if svcErr == nil {
+			svcErr = copilotServiceErrorFromData(data)
+		}
 
-		if svcErr := copilotServiceErrorFromData(data); svcErr != nil {
+		if svcErr != nil {
 			if svcErr.retryable && attempt < copilotServiceErrorMaxRetries {
 				if ctx.Verbose {
 					fmt.Fprintf(os.Stderr, "--- Copilot returned a retryable service error; retrying (attempt %d/%d) after %v\n%s\n", attempt+1, copilotServiceErrorMaxRetries, copilotServiceErrorRetryDelay, svcErr.Error())
@@ -266,15 +271,25 @@ func cloneMap(data map[string]any) map[string]any {
 	return cloned
 }
 
-func copilotServiceErrorFromData(data map[string]any) *copilotServiceError {
-	_, message := extractPrimaryText(data)
-	message = sanitizeCopilotServiceMessage(message)
-	if message == "" {
+// copilotServiceErrorFromToolError converts a failed tool call reported by
+// CallToolData into a copilotServiceError so timeouts can be retried.
+func copilotServiceErrorFromToolError(err error) *copilotServiceError {
+	var toolErr *mcp.ToolError
+	if !errors.As(err, &toolErr) {
 		return nil
 	}
+	return &copilotServiceError{
+		message:   toolErr.Message,
+		retryable: isRetryableCopilotServiceError(toolErr.Message),
+	}
+}
 
-	lower := strings.ToLower(message)
-	if !strings.HasPrefix(lower, "error executing tool:") {
+// copilotServiceErrorFromData detects tool failures embedded in a JSON
+// payload field (e.g. {"message":"Error executing tool: ..."}).
+func copilotServiceErrorFromData(data map[string]any) *copilotServiceError {
+	_, message := extractPrimaryText(data)
+	message = mcp.SanitizeToolErrorMessage(message)
+	if message == "" || !mcp.IsToolErrorMessage(message) {
 		return nil
 	}
 
@@ -287,32 +302,6 @@ func copilotServiceErrorFromData(data map[string]any) *copilotServiceError {
 func isRetryableCopilotServiceError(message string) bool {
 	lower := strings.ToLower(message)
 	return strings.Contains(lower, "timed out") || strings.Contains(lower, "timed-out") || strings.Contains(lower, "timeout")
-}
-
-func sanitizeCopilotServiceMessage(message string) string {
-	message = strings.ReplaceAll(message, "\r\n", "\n")
-	message = strings.ReplaceAll(message, "\r", "\n")
-
-	seen := map[string]struct{}{}
-	lines := strings.Split(message, "\n")
-	cleaned := make([]string, 0, len(lines))
-
-	for i, line := range lines {
-		line = strings.TrimSpace(line)
-		if i == 0 {
-			line = strings.TrimSpace(strings.TrimPrefix(line, "Error:"))
-		}
-		if line == "" {
-			continue
-		}
-		if _, ok := seen[line]; ok {
-			continue
-		}
-		seen[line] = struct{}{}
-		cleaned = append(cleaned, line)
-	}
-
-	return strings.TrimSpace(strings.Join(cleaned, "\n"))
 }
 
 func normalizeCopilotResponse(data map[string]any, conversationID string) map[string]any {

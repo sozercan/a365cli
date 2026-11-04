@@ -49,12 +49,20 @@ func (c *Context) CallToolData(endpoint, toolName, action string, args map[strin
 		return nil, fmt.Errorf("initialize: %w", err)
 	}
 
+	if action == "" {
+		action = toolName
+	}
+
 	resp, err := client.CallTool(c.Ctx, toolName, args)
 	if err != nil {
-		if action == "" {
-			action = toolName
-		}
 		return nil, fmt.Errorf("%s: %w", action, err)
+	}
+
+	// Servers report tool execution failures inside a successful JSON-RPC
+	// result (isError or an "Error executing tool: ..." text payload). Surface
+	// them as errors so the command exits non-zero instead of printing them.
+	if toolErr := mcp.ToolCallError(toolName, resp); toolErr != nil {
+		return nil, fmt.Errorf("%s: %w", action, toolErr)
 	}
 
 	return output.ExtractContent(resp)
