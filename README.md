@@ -8,7 +8,7 @@ A standalone, agent-friendly CLI for Microsoft 365 via [agent365](https://agent3
 - **170+ MCP tools** — full API coverage with dynamic server discovery
 - **Agent-friendly** — structured `--output=json` for LLM tool use, `--no-input` for non-interactive execution, `--dry-run` for safe exploration
 - **Three output modes** — human tables (default), JSON for scripting, TSV for piping
-- **Interactive browser auth** with PKCE — persistent silent re-auth on supported native-cache builds
+- **Interactive browser auth** with PKCE, plus a `--no-browser` mode for headless machines — persistent silent re-auth on supported native-cache builds
 - **Resilient** — automatic retries with backoff on 502/503/429, MCP session caching
 - **Configurable** — `~/.a365/config.json` for persistent defaults, env vars, CLI flags
 - **Shell completion** — bash, zsh, fish
@@ -112,11 +112,16 @@ a portable pure-Go binary without persistent OS token caching. See
 
 a365 uses Entra ID interactive browser authentication with PKCE. On a supported native-cache build, the refresh-token cache is persisted in the OS credential store so later processes can refresh silently; ordinary commands fail with explicit login guidance instead of unexpectedly opening a browser when that cache is unavailable. Portable CGO-disabled builds have no durable token cache, so interactive commands may open the browser again to remain usable. `--no-input` is a hard no-browser mode on every build.
 
+On headless machines (SSH sessions, containers, remote VMs), use `a365 auth login --no-browser`. It prints the sign-in URL instead of launching a browser. Open it in a browser on your own machine, which still satisfies Conditional Access. The redirect back goes to `http://localhost:8400` (change it with `--port`), so forward that port to the remote host first, for example `ssh -L 8400:localhost:8400 <host>`. VS Code Remote and similar tools may forward it automatically. On Linux, login switches to this mode automatically when no browser launcher (`xdg-open`, `x-www-browser`, `www-browser`) is found. `--device-code` is also available, but many organizations block it with Conditional Access (error 53003). Headless login needs a build with the persistent token cache, such as a CGO-enabled `make install` on Linux, so later commands can reuse the tokens. The portable Linux and Windows release binaries don't have that cache, so they refuse headless login with an explanation.
+
 A built-in client ID is provided by default. If your tenant requires a custom app registration, set your own via `--client-id` or `A365_CLIENT_ID`.
 
 ```bash
 # Login (uses the built-in client ID by default)
 a365 auth login
+
+# Login without a local browser (SSH / headless; forward port 8400 first)
+a365 auth login --no-browser
 
 # Check for cached account metadata (does not validate a live token)
 a365 auth status

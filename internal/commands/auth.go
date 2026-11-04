@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/sozercan/a365cli/internal/auth"
 	"github.com/sozercan/a365cli/internal/mcp"
 	"github.com/sozercan/a365cli/internal/output"
@@ -18,31 +20,70 @@ import (
 
 // AuthCmd groups authentication subcommands.
 type AuthCmd struct {
-	Login  AuthLoginCmd  `cmd:"" help:"Log in via browser (interactive)"`
+	Login  AuthLoginCmd  `cmd:"" help:"Log in via browser or device code (interactive)"`
 	Status AuthStatusCmd `cmd:"" help:"Show current authentication status"`
 	Token  AuthTokenCmd  `cmd:"" help:"Show current token details (scopes, expiry)"`
 	Logout AuthLogoutCmd `cmd:"" help:"Log out and clear cached credentials"`
 }
 
-// AuthLoginCmd performs interactive browser login.
-type AuthLoginCmd struct{}
+// AuthLoginCmd performs interactive browser or device code login.
+type AuthLoginCmd struct {
+	NoBrowser  bool `help:"Don't launch a browser; print the sign-in URL to open on another machine. The browser there must reach this host's --port on localhost (e.g. ssh -L). Used automatically when no browser launcher is found." xor:"flow"`
+	Port       int  `help:"Local redirect port used with --no-browser." default:"8400"`
+	DeviceCode bool `help:"Sign in with a device code instead of a browser redirect. Some tenants block this flow with Conditional Access." xor:"flow"`
+}
 
 func (c *AuthLoginCmd) Run(ctx *Context) error {
 	if ctx.NoInput || !isTerminal() {
 		return fmt.Errorf("login requires interactive input")
 	}
-	fmt.Fprintln(ctx.Output.Writer, "Opening browser for authentication...")
+	if c.Port < 1 || c.Port > 65535 {
+		return fmt.Errorf("invalid --port %d: must be between 1 and 65535", c.Port)
+	}
 
-	cred, err := auth.NewCredentialWithOptions(ctx.ClientID, ctx.TenantID, auth.CredentialOptions{
+	noBrowser := c.NoBrowser
+	if !noBrowser && !c.DeviceCode && !auth.BrowserAvailable() {
+		fmt.Fprintln(ctx.Output.Writer, "No browser launcher found; printing the sign-in URL instead (--no-browser).")
+		noBrowser = true
+	}
+	if !noBrowser && !c.DeviceCode {
+		fmt.Fprintln(ctx.Output.Writer, "Opening browser for authentication...")
+	}
+
+	credOpts := auth.CredentialOptions{
 		DisableAutomaticAuthentication:           true,
 		AllowAutomaticAuthenticationWithoutCache: true,
-	})
+		DeviceCode:                               c.DeviceCode,
+		DeviceCodePrompt:                         ctx.Output.Writer,
+	}
+	if noBrowser {
+		credOpts.RedirectPort = c.Port
+	}
+	cred, err := auth.NewCredentialWithOptions(ctx.ClientID, ctx.TenantID, credOpts)
 	if err != nil {
 		return fmt.Errorf("create credential: %w", err)
 	}
+	// A headless login is only useful if later commands can reuse its tokens.
+	if (noBrowser || c.DeviceCode) && !cred.PersistentCache() {
+		return auth.ErrHeadlessWithoutPersistentCache
+	}
 
-	token, err := cred.Authenticate(context.Background())
+	// Cancel cleanly on Ctrl+C so temporary login state is cleaned up.
+	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	var token azcore.AccessToken
+	if noBrowser {
+		token, err = cred.AuthenticateWithoutBrowser(sigCtx, func(u string) {
+			printNoBrowserInstructions(ctx.Output.Writer, u, c.Port)
+		})
+	} else {
+		token, err = cred.Authenticate(sigCtx)
+	}
 	if err != nil {
+		if !noBrowser && !c.DeviceCode {
+			return fmt.Errorf("login failed (on a headless machine, try 'a365 auth login --no-browser'): %w", err)
+		}
 		return fmt.Errorf("login failed: %w", err)
 	}
 
@@ -136,6 +177,23 @@ func (c *AuthTokenCmd) Run(ctx *Context) error {
 
 	printTokenClaims(ctx.Output.Writer, claims)
 	return nil
+}
+
+func printNoBrowserInstructions(w io.Writer, signInURL string, port int) {
+	fmt.Fprintf(w, `
+After sign-in, your browser is redirected to http://localhost:%[1]d.
+If your browser runs on a different machine, forward that port to this host first, e.g.:
+
+    ssh -L %[1]d:localhost:%[1]d <this-host>
+
+(VS Code Remote and similar tools may forward it automatically.)
+
+Open this URL in your browser:
+
+    %[2]s
+
+Waiting for sign-in... (Ctrl+C to cancel)
+`, port, signInURL)
 }
 
 func printTokenClaims(w io.Writer, claims map[string]any) {

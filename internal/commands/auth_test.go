@@ -5,10 +5,15 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/sozercan/a365cli/internal/auth"
 	"github.com/sozercan/a365cli/internal/output"
 )
 
@@ -124,6 +129,37 @@ func TestEnsureAuth_WithoutCachedAuthRequiresExplicitLogin(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "a365 auth login") {
 		t.Fatalf("expected explicit login guidance, got %v", err)
+	}
+}
+
+func TestEnsureAuth_HeadlessWithoutPersistentCache(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("browser launcher detection only applies on linux")
+	}
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("A365_DISABLE_PERSISTENT_TOKEN_CACHE", "1")
+	if err := auth.SaveAuthRecord(&azidentity.AuthenticationRecord{Username: "alice@contoso.com", Version: "1.0"}); err != nil {
+		t.Fatalf("SaveAuthRecord() error = %v", err)
+	}
+
+	binDir := t.TempDir()
+	t.Setenv("PATH", binDir)
+
+	ctx := &Context{Ctx: context.Background()}
+	if err := ctx.EnsureAuth(); !errors.Is(err, auth.ErrHeadlessWithoutPersistentCache) {
+		t.Fatalf("EnsureAuth() error = %v, want ErrHeadlessWithoutPersistentCache", err)
+	}
+
+	// With a browser launcher available, the interactive fallback stays usable.
+	if err := os.WriteFile(filepath.Join(binDir, "xdg-open"), []byte("#!/bin/sh\n"), 0o700); err != nil { //nolint:gosec // test launcher stub
+		t.Fatal(err)
+	}
+	ctx = &Context{Ctx: context.Background()}
+	if err := ctx.EnsureAuth(); err != nil {
+		t.Fatalf("EnsureAuth() with browser launcher error = %v", err)
+	}
+	if ctx.TokenProvider == nil {
+		t.Fatal("expected TokenProvider to be set")
 	}
 }
 
